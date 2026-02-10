@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { BiTimer, BiWallet } from "react-icons/bi";
-import { FaArrowRight, FaRegCheckCircle, FaTrophy } from "react-icons/fa";
+import { FaArrowLeft, FaArrowRight, FaRegCheckCircle, FaTrophy } from "react-icons/fa";
 
 type ExamStatus = "registered" | "not_registered" | "low_balance";
 
@@ -38,6 +38,15 @@ export default function ExamsPage() {
 
   return (
     <div className="text-white mb-40">
+      {/* Back to Dashboard */}
+      <Link
+        href="/dashboard"
+        className="inline-flex items-center gap-2 text-sm text-[var(--muted)] hover:text-[var(--text-primary)] transition mb-4"
+      >
+        <FaArrowLeft size={12} />
+        Back to Dashboard
+      </Link>
+
       <h1 className="text-[40px] font-semibold">Exam Arena</h1>
       <p className="text-[#aaa]">
         Select the exam below to compete for cash prizes.

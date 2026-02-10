@@ -1,29 +1,68 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Dark theme (default) */
+:root,
+[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --fg: #ededed;
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-border: rgba(255, 255, 255, 0.06);
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(255, 255, 255, 0.06);
+  --card-shadow: none;
+  --header-bg: rgba(10, 10, 10, 0.7);
+  --footer-bg: rgba(10, 10, 10, 0.8);
+  --dropdown-bg: #1a1a1a;
+  --dropdown-border: rgba(255, 255, 255, 0.08);
+  --backdrop-bg: rgba(0, 0, 0, 0.4);
+  --muted: #aaaaaa;
+  --muted-strong: #6b7280;
+  --divider: rgba(255, 255, 255, 0.06);
+  --input-bg: rgba(0, 0, 0, 0.32);
+  --text-primary: #ffffff;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+  --logo-island: #111111;
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg: #f0f1f3;
+  --fg: #171717;
+  --surface: #e8eaed;
+  --surface-hover: #dfe1e5;
+  --surface-border: #d1d5db;
+  --card-bg: #ffffff;
+  --card-border: #d1d5db;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --header-bg: rgba(240, 241, 243, 0.92);
+  --footer-bg: rgba(240, 241, 243, 0.95);
+  --dropdown-bg: #ffffff;
+  --dropdown-border: #d1d5db;
+  --backdrop-bg: rgba(0, 0, 0, 0.25);
+  --muted: #4b5563;
+  --muted-strong: #1f2937;
+  --divider: #d1d5db;
+  --input-bg: #e8eaed;
+  --text-primary: #0a0a0a;
+  --text-secondary: #1f2937;
+  --text-tertiary: #4b5563;
+  --logo-island: #1a1a1a;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: black;
-  color: var(--background);
+  background: var(--bg);
+  color: var(--fg);
   font-family: Arial, Helvetica, sans-serif;
-  transition: all 300ms ease;
+  transition: background 300ms ease, color 300ms ease;
 }
 
 .redBg {
@@ -54,12 +93,45 @@ body {
   @apply bg-[#00000052] border border-[#ffffff20];
 }
 
+.themed-card {
+  box-shadow: var(--card-shadow);
+}
+
+/* Invert logo color in light mode so white logo becomes dark */
+[data-theme="light"] .logo-themed {
+  filter: invert(1);
+}
+
+/* Auth page floating question animation */
+@keyframes float-up {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.8);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-40px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(0.9);
+  }
+}
+
+.animate-float-up {
+  animation: float-up 3s ease-out forwards;
+}
+
 /* Hide scrollbar but allow scroll */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
 .no-scrollbar {
-  -ms-overflow-style: none; /* IE & Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

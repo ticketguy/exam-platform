@@ -16,6 +16,20 @@
 | Database   | TBD                                            |
 | Design     | Dark theme, glass-morphism, same color palette  |
 
+## Core Concept — Exam Arena
+
+Nocho uses an **Arena** model for competitive exams:
+
+- **Exam Arena** — the main hub where users browse and enter exams. Each arena has an entry fee and a potential prize pool.
+- **Active Exams** — exams the user is currently participating in within the arena.
+- **Upcoming** — exams scheduled to start soon in the arena.
+- **Arena Board** — leaderboard specific to the arena the user is in (per-exam rankings).
+- **Global Board** — overall platform leaderboard across all arenas (accessible via Quick Access).
+
+Users pay an entry fee to join an arena exam, compete, and win from the prize pool.
+
+---
+
 ## Color Palette (Keeping)
 
 | Token             | Value           | Usage                          |
@@ -162,17 +176,18 @@
 
 ### Pages to Fix
 
-- [ ] **Registration page** — add form submission, validation, connect to FastAPI
+- [x] **Registration page** — redesigned with glassmorphism, animated bg, form fields wired up (needs backend)
+
 - [ ] **Profile page** — design and build from scratch
 - [ ] **Landing page** — fill in feature section, wire up "About" button
 
 ### Pages to Redesign (Modern UI)
 
 - [ ] Landing page
-- [ ] Login page
-- [ ] Register page
-- [ ] User dashboard
-- [ ] Exams list (support multiple exams)
+- [x] Login page — glassmorphism, animated bouncing logo bg, random questions, modern form
+- [x] Register page — matching glassmorphism design
+- [x] User dashboard — Header+Footer layout, wallet/stats cards, quick access, dynamic island tabs
+- [ ] Exam Arena (support multiple arenas with entry fees and prize pools)
 - [ ] Exam details
 - [ ] Exam start
 - [ ] Live exam
@@ -220,3 +235,12 @@
 | 2026-02-10 | Created `.env.local` (fixed login), renamed README → CONFIG.md  |
 | 2026-02-10 | Wrote new README.md with project overview                        |
 | 2026-02-10 | Created TRACKER.md (this file)                                   |
+| 2026-02-10 | Redesigned Header (dynamic island profile, notifications, logo)  |
+| 2026-02-10 | Redesigned Footer (wallet, stats, theme toggle)                  |
+| 2026-02-10 | Redesigned Dashboard (wallet card, stats, quick access, tabs)    |
+| 2026-02-10 | Built theme system (Zustand + CSS variables, dark/light)         |
+| 2026-02-10 | Fixed light theme contrast (surface, borders, text, shadows)     |
+| 2026-02-10 | Redesigned Login page (glassmorphism + animated bouncing logos)   |
+| 2026-02-10 | Redesigned Register page (matching glassmorphism design)         |
+| 2026-02-10 | Introduced Arena concept (exam arena, arena board vs global board)|
+| 2026-02-10 | Added CSS filter logo inversion for light theme                  |

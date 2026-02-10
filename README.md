@@ -6,8 +6,19 @@ A web-based competitive examination platform where users register for paid acade
 
 Nocho provides two portals:
 
-- **User Portal** — Browse and register for exams, take live timed exams, view results, manage a crypto wallet (Naira/Digibyte), and compete on leaderboards.
+- **User Portal** — Enter the **Exam Arena** to compete in paid academic exams, take live timed exams, view results, manage a wallet, and climb leaderboards.
 - **Admin Portal** — Manage exams (create, edit, delete), oversee deposits/withdrawals, view transactions, and monitor platform metrics.
+
+## The Arena Concept
+
+Nocho's core experience revolves around the **Exam Arena**:
+
+- Users browse available arenas, each with an **entry fee** and **prize pool**
+- Pay the entry fee to join an arena exam and compete against other participants
+- **Arena Board** — per-exam leaderboard ranking participants within that specific arena
+- **Global Board** — overall platform leaderboard ranking users across all arenas
+- **Active Exams** — exams the user is currently participating in
+- **Upcoming** — scheduled exams about to start in the arena
 
 ## Tech Stack
 
@@ -34,14 +45,16 @@ app/
 └── page.tsx          # Landing page
 
 components/
-├── layout/           # Sidenav (user), AdminShell (admin)
+├── auth/             # AnimatedAuthBackground (bouncing logos + questions)
+├── layout/           # Header, Footer, Sidenav (legacy), AdminShell
 └── ui/               # Reusable UI components (OverViewCard)
 
 lib/
 └── auth.ts           # NextAuth configuration & credentials provider
 
 stores/
-└── useExamStore.ts   # Zustand store for exam data
+├── useExamStore.ts   # Zustand store for exam data
+└── useThemeStore.ts  # Zustand store for dark/light theme persistence
 
 middleware.ts         # Route protection & role-based access control
 types/

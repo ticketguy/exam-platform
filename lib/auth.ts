@@ -11,44 +11,41 @@ export const authOptions: NextAuthOptions = {
         userType: { label: "User Type", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials) return null;
+        if (!credentials?.email || !credentials?.password) return null;
 
-        const users = [
-          {
-            id: "1",
-            name: "Admin",
-            email: "admin@test.com",
-            password: "admin",
-            role: "admin",
-          },
-          {
-            id: "2",
-            name: "User",
-            email: "user@test.com",
-            password: "admin",
-            role: "user",
-          },
-        ];
+        try {
+          const res = await fetch(
+            `${process.env.API_URL}/api/v1/auth/login`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: credentials.email,
+                password: credentials.password,
+              }),
+            },
+          );
 
-        const user = users.find(
-          (u) =>
-            u.email === credentials.email &&
-            u.password === credentials.password,
-        );
+          if (!res.ok) return null;
 
-        if (!user) return null;
+          const user = await res.json();
 
-        // Check if userType matches role
-        if (credentials.userType && user.role !== credentials.userType) {
+          // Check if userType matches role (admin login vs user login)
+          if (credentials.userType && user.role !== credentials.userType) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            nickname: user.nickname,
+            accessToken: user.token,
+          };
+        } catch {
           return null;
         }
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        };
       },
     }),
   ],
@@ -59,14 +56,20 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        token.id = user.id;
         token.role = user.role;
+        token.nickname = user.nickname;
+        token.accessToken = user.accessToken;
       }
       return token;
     },
     async session({ session, token }) {
       if (session?.user) {
+        session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.nickname = token.nickname as string;
       }
+      session.accessToken = token.accessToken as string;
       return session;
     },
   },
