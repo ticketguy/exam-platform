@@ -1,36 +1,115 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nocho — Competitive Exam Platform
+
+A web-based competitive examination platform where users register for paid academic exams and compete for prizes. Built with Next.js 14, TypeScript, and Tailwind CSS.
+
+## Overview
+
+Nocho provides two portals:
+
+- **User Portal** — Browse and register for exams, take live timed exams, view results, manage a crypto wallet (Naira/Digibyte), and compete on leaderboards.
+- **Admin Portal** — Manage exams (create, edit, delete), oversee deposits/withdrawals, view transactions, and monitor platform metrics.
+
+## Tech Stack
+
+| Layer          | Technology                          |
+| -------------- | ----------------------------------- |
+| Framework      | Next.js 14 (App Router)            |
+| Language       | TypeScript 5                        |
+| Styling        | Tailwind CSS 4                      |
+| Authentication | NextAuth 4 (JWT, Credentials)      |
+| State          | Zustand (localStorage persistence) |
+| Font           | Geist (via next/font)               |
+| Icons          | react-icons                         |
+
+## Project Structure
+
+```
+app/
+├── (admin)/          # Admin route group (dashboard, exams, deposits, withdrawals, transactions, settings)
+├── (auth)/           # Auth route group (login, register)
+├── (user)/           # User route group (dashboard, exams, wallet, leaderboard, profile, settings)
+├── api/auth/         # NextAuth API route
+├── layout.tsx        # Root layout with Providers
+├── providers.tsx     # SessionProvider wrapper
+└── page.tsx          # Landing page
+
+components/
+├── layout/           # Sidenav (user), AdminShell (admin)
+└── ui/               # Reusable UI components (OverViewCard)
+
+lib/
+└── auth.ts           # NextAuth configuration & credentials provider
+
+stores/
+└── useExamStore.ts   # Zustand store for exam data
+
+middleware.ts         # Route protection & role-based access control
+types/
+└── next-auth.d.ts    # NextAuth type augmentations
+```
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- npm / yarn / pnpm
+
+### Installation
+
+```bash
+npm install
+```
+
+### Environment Variables
+
+Create a `.env.local` file in the project root:
+
+```env
+NEXTAUTH_SECRET=your-secret-key
+NEXTAUTH_URL=http://localhost:3000
+```
+
+### Running the Dev Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Test Credentials
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Role  | Email            | Password |
+| ----- | ---------------- | -------- |
+| User  | user@test.com    | admin    |
+| Admin | admin@test.com   | admin    |
 
-## Learn More
+## Route Protection
 
-To learn more about Next.js, take a look at the following resources:
+The middleware enforces role-based access:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Public**: `/`, `/login`, `/register`, `/admin/login`
+- **User-only**: `/dashboard`, `/exams`, `/wallet`, `/leaderboard`, `/profile`, `/settings`
+- **Admin-only**: `/admin/*`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Unauthorized access redirects to the appropriate login page.
 
-## Deploy on Vercel
+## Current Status
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This is a **frontend prototype**. The UI and routing are functional, but:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- All data (exams, transactions, stats) is **mocked/hardcoded**
+- Authentication uses **hardcoded test accounts** (no real user registration)
+- No database is connected
+- Wallet/crypto integration is referenced but **not implemented**
+- Several admin pages are **placeholders**
+
+## Scripts
+
+| Command         | Description              |
+| --------------- | ------------------------ |
+| `npm run dev`   | Start dev server (Turbo) |
+| `npm run build` | Production build         |
+| `npm start`     | Start production server  |
+| `npm run lint`  | Run ESLint               |
