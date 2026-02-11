@@ -16,7 +16,7 @@ import {
 } from "react-icons/fa";
 import { FaPalette } from "react-icons/fa6";
 import { HiOutlineDevicePhoneMobile } from "react-icons/hi2";
-import useThemeStore from "@/stores/useThemeStore";
+import { useThemeStore } from "@/stores/useThemeStore";
 
 export default function SettingsPage() {
   const router = useRouter();

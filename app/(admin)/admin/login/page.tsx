@@ -1,10 +1,8 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import Logo from "@/public/invertedLogo.png";
 
 const AdminLoginPage = () => {
   const router = useRouter();
@@ -30,15 +28,15 @@ const AdminLoginPage = () => {
     }
 
     // Redirect to admin dashboard on successful login
-    router.push("/admin");
+    router.push("/idokosafehouse");
   };
 
   return (
     <div className="h-screen w-full flex items-center justify-center px-7 md:px-40 max-w-225 mx-auto">
       <div className="bg-white py-10 px-5 text-center rounded-md shadow-md w-full">
         {/* Logo */}
-        <div className="relative w-20 h-20 mx-auto mb-4 bg-[#8B2E2E] rounded-full flex items-center justify-center">
-          <Image src={Logo} alt="Logo" className="object-contain" fill />
+        <div className="relative w-20 h-20 mx-auto mb-4 bg-[#8B2E2E] rounded-full flex items-center justify-center overflow-hidden">
+          <img src="/invertedLogo.png" alt="Logo" className="object-contain w-full h-full" />
         </div>
 
         <h1 className="text-[30px] font-semibold">Admin Portal</h1>

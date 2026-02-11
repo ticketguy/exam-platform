@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
   FaArrowRight,
@@ -94,12 +95,20 @@ export default function Page() {
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
   const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistEnabled, setWaitlistEnabled] = useState(true);
 
   useEffect(() => {
     if (session) {
       router.push("/dashboard");
     }
   }, [session, router]);
+
+  useEffect(() => {
+    fetch("/api/v1/settings")
+      .then((res) => res.json())
+      .then((data) => setWaitlistEnabled(data.waitlistEnabled))
+      .catch(() => {});
+  }, []);
 
   const handleWaitlistSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,12 +155,29 @@ export default function Page() {
             </a>
           </nav>
 
-          <a
-            href="#waitlist"
-            className="px-5 py-2 bg-[#8B1E1E] text-white text-sm font-semibold rounded-full hover:bg-[#a02424] transition-all shadow-lg shadow-[#8B1E1E]/20"
-          >
-            Join Waitlist
-          </a>
+          {waitlistEnabled ? (
+            <a
+              href="#waitlist"
+              className="px-5 py-2 bg-[#8B1E1E] text-white text-sm font-semibold rounded-full hover:bg-[#a02424] transition-all shadow-lg shadow-[#8B1E1E]/20"
+            >
+              Join Waitlist
+            </a>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link
+                href="/login"
+                className="px-5 py-2 text-sm font-semibold text-white hover:text-gray-300 transition"
+              >
+                Log In
+              </Link>
+              <Link
+                href="/register"
+                className="px-5 py-2 bg-[#8B1E1E] text-white text-sm font-semibold rounded-full hover:bg-[#a02424] transition-all shadow-lg shadow-[#8B1E1E]/20"
+              >
+                Sign Up
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 
@@ -180,46 +206,70 @@ export default function Page() {
             for being the smartest in the room.
           </p>
 
-          {/* Waitlist form — hero */}
+          {/* CTA — Waitlist or Login/Signup */}
           <div id="waitlist" className="mt-8 max-w-md mx-auto">
-            {waitlistSubmitted ? (
-              <div className="bg-green-500/10 border border-green-500/20 rounded-2xl px-6 py-4 text-center">
-                <p className="text-green-400 font-semibold">
-                  You&apos;re on the list!
+            {waitlistEnabled ? (
+              <>
+                {waitlistSubmitted ? (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-2xl px-6 py-4 text-center">
+                    <p className="text-green-400 font-semibold">
+                      You&apos;re on the list!
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      We&apos;ll notify you when Nocho launches. You&apos;ll be
+                      among the first to try it out.
+                    </p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleWaitlistSubmit} className="flex gap-2">
+                    <input
+                      type="email"
+                      placeholder="Enter your email"
+                      required
+                      value={waitlistEmail}
+                      onChange={(e) => setWaitlistEmail(e.target.value)}
+                      className="flex-1 bg-white/[0.06] border border-white/[0.12] rounded-full px-5 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-[#8B1E1E]/60 focus:bg-white/[0.08] transition"
+                    />
+                    <button
+                      type="submit"
+                      disabled={waitlistLoading}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#8B1E1E] to-[#6b1717] text-white text-sm font-semibold rounded-full hover:from-[#a02424] hover:to-[#7a1c1c] transition-all shadow-lg shadow-[#8B1E1E]/25 disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {waitlistLoading ? (
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          Join Waitlist <FaArrowRight size={12} />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
+                <p className="text-xs text-gray-600 mt-3 text-center">
+                  Get priority access to the beta. No spam, ever.
                 </p>
-                <p className="text-sm text-gray-400 mt-1">
-                  We&apos;ll notify you when Nocho launches. You&apos;ll be
-                  among the first to try it out.
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex gap-3">
+                  <Link
+                    href="/register"
+                    className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-[#8B1E1E] to-[#6b1717] text-white text-sm font-semibold rounded-full hover:from-[#a02424] hover:to-[#7a1c1c] transition-all shadow-lg shadow-[#8B1E1E]/25"
+                  >
+                    Get Started <FaArrowRight size={12} />
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center gap-2 px-8 py-3 bg-white/[0.06] border border-white/[0.12] text-white text-sm font-semibold rounded-full hover:bg-white/[0.1] transition"
+                  >
+                    Log In
+                  </Link>
+                </div>
+                <p className="text-xs text-gray-600 text-center">
+                  Free to join. Start competing in knowledge arenas today.
                 </p>
               </div>
-            ) : (
-              <form onSubmit={handleWaitlistSubmit} className="flex gap-2">
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  required
-                  value={waitlistEmail}
-                  onChange={(e) => setWaitlistEmail(e.target.value)}
-                  className="flex-1 bg-white/[0.06] border border-white/[0.12] rounded-full px-5 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-[#8B1E1E]/60 focus:bg-white/[0.08] transition"
-                />
-                <button
-                  type="submit"
-                  disabled={waitlistLoading}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#8B1E1E] to-[#6b1717] text-white text-sm font-semibold rounded-full hover:from-[#a02424] hover:to-[#7a1c1c] transition-all shadow-lg shadow-[#8B1E1E]/25 disabled:opacity-50 whitespace-nowrap"
-                >
-                  {waitlistLoading ? (
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      Join Waitlist <FaArrowRight size={12} />
-                    </>
-                  )}
-                </button>
-              </form>
             )}
-            <p className="text-xs text-gray-600 mt-3 text-center">
-              Be the first to access Nocho when we launch. No spam, ever.
-            </p>
           </div>
 
           {/* Stats strip */}
@@ -543,7 +593,7 @@ export default function Page() {
         </div>
       </section>
 
-      {/* ─── CTA — WAITLIST ─── */}
+      {/* ─── CTA ─── */}
       <section className="py-20 px-4">
         <div className="max-w-3xl mx-auto text-center">
           <div className="bg-gradient-to-br from-[#8B1E1E]/20 to-transparent border border-[#8B1E1E]/20 rounded-3xl p-10 sm:p-14">
@@ -551,40 +601,58 @@ export default function Page() {
               Your Knowledge is Worth Money
             </h2>
             <p className="text-gray-400 max-w-md mx-auto mb-6">
-              Stop studying for free. Join the waitlist and be the first to earn
-              from what you already know when Nocho launches.
+              {waitlistEnabled
+                ? "Stop studying for free. Join the waitlist and be the first to earn from what you already know when Nocho launches."
+                : "Stop studying for free. Sign up now and start earning from what you already know."}
             </p>
-            {waitlistSubmitted ? (
-              <p className="text-green-400 font-semibold">
-                You&apos;re already on the list!
-              </p>
-            ) : (
-              <form
-                onSubmit={handleWaitlistSubmit}
-                className="flex gap-2 max-w-md mx-auto"
-              >
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  required
-                  value={waitlistEmail}
-                  onChange={(e) => setWaitlistEmail(e.target.value)}
-                  className="flex-1 bg-white/[0.06] border border-white/[0.12] rounded-full px-5 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-[#8B1E1E]/60 focus:bg-white/[0.08] transition"
-                />
-                <button
-                  type="submit"
-                  disabled={waitlistLoading}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#8B1E1E] to-[#6b1717] text-white text-sm font-semibold rounded-full hover:from-[#a02424] hover:to-[#7a1c1c] transition-all shadow-lg shadow-[#8B1E1E]/25 disabled:opacity-50 whitespace-nowrap"
+            {waitlistEnabled ? (
+              waitlistSubmitted ? (
+                <p className="text-green-400 font-semibold">
+                  You&apos;re already on the list!
+                </p>
+              ) : (
+                <form
+                  onSubmit={handleWaitlistSubmit}
+                  className="flex gap-2 max-w-md mx-auto"
                 >
-                  {waitlistLoading ? (
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      Join <FaArrowRight size={12} />
-                    </>
-                  )}
-                </button>
-              </form>
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    required
+                    value={waitlistEmail}
+                    onChange={(e) => setWaitlistEmail(e.target.value)}
+                    className="flex-1 bg-white/[0.06] border border-white/[0.12] rounded-full px-5 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-[#8B1E1E]/60 focus:bg-white/[0.08] transition"
+                  />
+                  <button
+                    type="submit"
+                    disabled={waitlistLoading}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#8B1E1E] to-[#6b1717] text-white text-sm font-semibold rounded-full hover:from-[#a02424] hover:to-[#7a1c1c] transition-all shadow-lg shadow-[#8B1E1E]/25 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {waitlistLoading ? (
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        Join <FaArrowRight size={12} />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )
+            ) : (
+              <div className="flex justify-center gap-3">
+                <Link
+                  href="/register"
+                  className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-[#8B1E1E] to-[#6b1717] text-white text-sm font-semibold rounded-full hover:from-[#a02424] hover:to-[#7a1c1c] transition-all shadow-lg shadow-[#8B1E1E]/25"
+                >
+                  Get Started <FaArrowRight size={12} />
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 px-8 py-3 bg-white/[0.06] border border-white/[0.12] text-white text-sm font-semibold rounded-full hover:bg-white/[0.1] transition"
+                >
+                  Log In
+                </Link>
+              </div>
             )}
           </div>
         </div>

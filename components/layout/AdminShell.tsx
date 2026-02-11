@@ -36,39 +36,39 @@ const AdminShell = ({ children }: { children: React.ReactNode }) => {
 
   // Admin navigation links
   const links = [
-    { name: "Dashboard", icon: <MdDashboard />, href: "/admin" },
-    { name: "Exams", icon: <GiOpenBook />, href: "/admin/exams" },
-    { name: "Deposits", icon: <FaMoneyBillWave />, href: "/admin/deposits" },
+    { name: "Dashboard", icon: <MdDashboard />, href: "/idokosafehouse" },
+    { name: "Exams", icon: <GiOpenBook />, href: "/idokosafehouse/exams" },
+    { name: "Deposits", icon: <FaMoneyBillWave />, href: "/idokosafehouse/deposits" },
     {
       name: "Withdrawals",
       icon: <FaClipboardList />,
-      href: "/admin/withdrawals",
+      href: "/idokosafehouse/withdrawals",
     },
     {
       name: "Transactions",
       icon: <FaExchangeAlt />,
-      href: "/admin/transactions",
+      href: "/idokosafehouse/transactions",
     },
   ];
 
   const settings = {
     name: "Settings",
     icon: <FaCog />,
-    href: "/admin/settings",
+    href: "/idokosafehouse/settings",
   };
 
   const getPageTitle = () => {
-    if (pathname === "/admin") return "Admin Dashboard";
-    if (pathname.startsWith("/admin/exams")) return "Manage Exams";
-    if (pathname.startsWith("/admin/deposits")) return "Manage Deposits";
-    if (pathname.startsWith("/admin/withdrawals")) return "Manage Withdrawals";
-    if (pathname.startsWith("/admin/transactions")) return "Transactions";
-    if (pathname.startsWith("/admin/settings")) return "Settings";
+    if (pathname === "/idokosafehouse") return "Admin Dashboard";
+    if (pathname.startsWith("/idokosafehouse/exams")) return "Manage Exams";
+    if (pathname.startsWith("/idokosafehouse/deposits")) return "Manage Deposits";
+    if (pathname.startsWith("/idokosafehouse/withdrawals")) return "Manage Withdrawals";
+    if (pathname.startsWith("/idokosafehouse/transactions")) return "Transactions";
+    if (pathname.startsWith("/idokosafehouse/settings")) return "Settings";
     return "Admin Panel";
   };
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/admin/login" });
+    await signOut({ callbackUrl: "/idokosafehouse/login" });
   };
 
   return (
@@ -96,8 +96,8 @@ const AdminShell = ({ children }: { children: React.ReactNode }) => {
             {links.map((link) => {
               // Special case for Dashboard - only active on exact match
               const isActive =
-                link.href === "/admin"
-                  ? pathname === "/admin" // Exact match for dashboard
+                link.href === "/idokosafehouse"
+                  ? pathname === "/idokosafehouse" // Exact match for dashboard
                   : pathname === link.href ||
                     pathname.startsWith(`${link.href}/`); // Normal check for others
 

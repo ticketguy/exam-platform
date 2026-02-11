@@ -8,7 +8,7 @@ import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { HiAtSymbol } from "react-icons/hi2";
 import AnimatedAuthBackground from "@/components/auth/AnimatedAuthBackground";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = "";
 
 const RegisterPage = () => {
   const router = useRouter();

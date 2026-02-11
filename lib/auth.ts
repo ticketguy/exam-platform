@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { findUserByEmail } from "@/lib/users";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,39 +14,22 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        try {
-          const res = await fetch(
-            `${process.env.API_URL}/api/v1/auth/login`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: credentials.email,
-                password: credentials.password,
-              }),
-            },
-          );
+        const user = findUserByEmail(credentials.email);
+        if (!user || user.password !== credentials.password) return null;
 
-          if (!res.ok) return null;
-
-          const user = await res.json();
-
-          // Check if userType matches role (admin login vs user login)
-          if (credentials.userType && user.role !== credentials.userType) {
-            return null;
-          }
-
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            nickname: user.nickname,
-            accessToken: user.token,
-          };
-        } catch {
+        // Check if userType matches role (admin login vs user login)
+        if (credentials.userType && user.role !== credentials.userType) {
           return null;
         }
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          nickname: user.nickname,
+          accessToken: `mock-jwt-${user.id}`,
+        };
       },
     }),
   ],

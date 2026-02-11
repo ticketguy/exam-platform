@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FaSave,
   FaCheckCircle,
@@ -11,6 +11,7 @@ import {
   FaCog,
   FaShieldAlt,
   FaWallet,
+  FaGlobe,
 } from "react-icons/fa";
 
 // Mock data
@@ -104,10 +105,38 @@ export default function SettingsPage() {
     "admin",
   );
 
+  // Platform Settings
+  const [waitlistEnabled, setWaitlistEnabled] = useState(true);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+
   const [activeTab, setActiveTab] = useState<
-    "dgb" | "security" | "exam" | "admins"
-  >("dgb");
+    "platform" | "dgb" | "security" | "exam" | "admins"
+  >("platform");
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Fetch waitlist status on mount
+  useEffect(() => {
+    fetch("/api/v1/settings")
+      .then((res) => res.json())
+      .then((data) => setWaitlistEnabled(data.waitlistEnabled))
+      .catch(() => {});
+  }, []);
+
+  const handleToggleWaitlist = async () => {
+    setWaitlistLoading(true);
+    try {
+      const res = await fetch("/api/v1/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ waitlistEnabled: !waitlistEnabled }),
+      });
+      const data = await res.json();
+      setWaitlistEnabled(data.waitlistEnabled);
+    } catch {
+      // silent fail
+    }
+    setWaitlistLoading(false);
+  };
 
   // Test RPC Connection
   const handleTestConnection = async () => {
@@ -207,6 +236,16 @@ export default function SettingsPage() {
       <div className="darkCard p-2">
         <div className="flex gap-2 overflow-x-auto">
           <button
+            onClick={() => setActiveTab("platform")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition whitespace-nowrap ${
+              activeTab === "platform"
+                ? "bg-[#8B2E2E] text-white"
+                : "text-gray-400 hover:bg-gray-800"
+            }`}
+          >
+            <FaGlobe /> Platform
+          </button>
+          <button
             onClick={() => setActiveTab("dgb")}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition whitespace-nowrap ${
               activeTab === "dgb"
@@ -248,6 +287,45 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* Platform Settings */}
+      {activeTab === "platform" && (
+        <div className="space-y-6">
+          <div className="redCard p-6">
+            <h2 className="text-white text-lg font-semibold mb-4">
+              Landing Page Mode
+            </h2>
+            <div className="flex items-center justify-between p-4 rounded-lg bg-gray-900 border border-gray-700">
+              <div>
+                <p className="text-white font-medium">Waitlist Mode</p>
+                <p className="text-gray-400 text-sm mt-1">
+                  {waitlistEnabled
+                    ? "Landing page shows a waitlist signup form. Users cannot register or log in."
+                    : "Landing page shows Login and Sign Up buttons. Users can register and access the platform."}
+                </p>
+              </div>
+              <button
+                type="button"
+                title={waitlistEnabled ? "Disable waitlist mode" : "Enable waitlist mode"}
+                onClick={handleToggleWaitlist}
+                disabled={waitlistLoading}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors shrink-0 ${
+                  waitlistEnabled ? "bg-[#8B2E2E]" : "bg-gray-600"
+                } disabled:opacity-50`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                    waitlistEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-gray-500 text-xs mt-3">
+              Enable waitlist mode to collect emails from beta testers before launch. Disable it to open the platform for registration.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* DigiByte Settings */}
       {activeTab === "dgb" && (

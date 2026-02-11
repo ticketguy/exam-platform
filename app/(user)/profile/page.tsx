@@ -49,7 +49,7 @@ export default function ProfilePage() {
     const fetchProfile = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/me`,
+          `/api/v1/users/me`,
           {
             headers: {
               Authorization: `Bearer ${session.accessToken || ""}`,
@@ -122,7 +122,7 @@ export default function ProfilePage() {
     if (field === "bio") payload.bio = value;
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/me`, {
+      await fetch(`/api/v1/users/me`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -151,7 +151,7 @@ export default function ProfilePage() {
 
         // Persist to API
         try {
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/users/me`, {
+          await fetch(`/api/v1/users/me`, {
             method: "PATCH",
             headers: {
               "Content-Type": "application/json",
