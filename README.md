@@ -186,6 +186,62 @@ The admin panel is **not** accessible at `/admin`. It uses a secret URL slug:
 
 ## Production Deployment
 
+### Option A — Vercel (Recommended)
+
+Vercel is the easiest way to deploy this Next.js app. Use a hosted PostgreSQL provider that supports connection pooling (Supabase or Neon recommended).
+
+#### Step 1 — Set up your database
+
+- Go to [supabase.com](https://supabase.com) or [neon.tech](https://neon.tech) and create a free PostgreSQL project
+- Copy the **connection pooling** URL (important for Vercel serverless functions)
+  - Supabase: use the **Transaction pooler** URL (port 6543)
+  - Neon: use the **pooled connection** string
+
+#### Step 2 — Run migrations from your local machine first
+
+```bash
+# Set DATABASE_URL in your local .env to the hosted DB
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+#### Step 3 — Deploy to Vercel
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy from the repo root
+vercel --prod
+```
+
+Or connect via the Vercel dashboard:
+
+1. Go to [vercel.com](https://vercel.com) → New Project → Import Git Repository
+2. Select the `frontend-a-liveprod` branch
+3. Add all environment variables (see table below)
+4. Click Deploy
+
+#### Step 4 — Set Vercel Environment Variables
+
+In your Vercel project → Settings → Environment Variables, add:
+
+| Variable                     | Value                                      |
+| ---------------------------- | ------------------------------------------ |
+| `DATABASE_URL`               | Your hosted PostgreSQL pooled URL (SSL)    |
+| `NEXTAUTH_SECRET`            | Random string: `openssl rand -base64 32`   |
+| `NEXTAUTH_URL`               | `https://your-project.vercel.app`          |
+| `RESEND_API_KEY`             | Your Resend API key (or leave empty)       |
+| `DGB_MODE`                   | `mock` (or `live` if DGB node is running)  |
+| `DGB_RPC_HOST`               | Your DGB node host (if `DGB_MODE=live`)    |
+| `DGB_RPC_PASS`               | Your DGB RPC password (if `DGB_MODE=live`) |
+
+> **Important:** After deploying, update `NEXTAUTH_URL` to your final Vercel domain (e.g. `https://nocho.vercel.app`), then redeploy.
+
+---
+
+### Option B — Self-Hosted VPS (Linux)
+
 A one-command deployment script is included:
 
 ```bash
@@ -196,7 +252,11 @@ bash deploy.sh
 PORT=8080 bash deploy.sh
 ```
 
-The script handles: dependency install, Prisma generate, migrations, build, and starts the server. See `deploy.sh` for details.
+The script handles: dependency install, Prisma generate, migrations, build, and starts the server.
+
+Then run behind nginx with SSL (Let's Encrypt or Cloudflare).
+
+---
 
 For detailed security review, see [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md).
 
