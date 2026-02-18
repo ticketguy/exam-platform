@@ -88,8 +88,11 @@ export default function CreateExamPage() {
     setCurrentOptions(newOptions);
   };
 
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
   // Submit exam
-  const handleSubmit = (publish: boolean) => {
+  const handleSubmit = async (publish: boolean) => {
     if (!title.trim()) {
       alert("Please enter exam title");
       return;
@@ -100,22 +103,41 @@ export default function CreateExamPage() {
       return;
     }
 
-    const examData = {
-      title,
-      description,
-      category,
-      difficulty,
-      duration,
-      passmark,
-      questions,
-      published: publish,
-      totalQuestions: questions.length,
-      totalPoints: questions.reduce((sum, q) => sum + q.points, 0),
-    };
+    setSubmitting(true);
+    setSubmitError("");
 
-    console.log("Exam Data:", examData);
-    alert(`Exam ${publish ? "published" : "saved as draft"}!`);
-    router.push("/admin/exams");
+    try {
+      const res = await fetch("/api/v1/admin/exams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description,
+          category,
+          difficulty,
+          duration,
+          passmark,
+          published: publish,
+          questions: questions.map((q) => ({
+            questionText: q.questionText,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            points: q.points,
+          })),
+        }),
+      });
+
+      if (res.ok) {
+        router.push("/admin/exams");
+      } else {
+        const err = await res.json();
+        setSubmitError(err.detail || "Failed to create exam");
+      }
+    } catch {
+      setSubmitError("Failed to create exam");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (previewMode) {
@@ -452,6 +474,13 @@ export default function CreateExamPage() {
         )}
       </div>
 
+      {/* Error Display */}
+      {submitError && (
+        <div className="bg-red-900 border border-red-600 rounded-lg p-3">
+          <p className="text-red-400 text-sm">{submitError}</p>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="flex flex-col md:flex-row gap-4">
         <button
@@ -463,15 +492,17 @@ export default function CreateExamPage() {
         </button>
         <button
           onClick={() => handleSubmit(false)}
+          disabled={submitting}
           className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition"
         >
-          <FaSave /> Save as Draft
+          <FaSave /> {submitting ? "Saving..." : "Save as Draft"}
         </button>
         <button
           onClick={() => handleSubmit(true)}
+          disabled={submitting}
           className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition"
         >
-          <FaSave /> Publish Exam
+          <FaSave /> {submitting ? "Publishing..." : "Publish Exam"}
         </button>
       </div>
     </div>

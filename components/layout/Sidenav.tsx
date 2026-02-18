@@ -16,8 +16,8 @@ import { GiOpenBook } from "react-icons/gi";
 
 type UserSession = {
   id: string;
-  nickname: string;
-  avatar: string;
+  nickname?: string;
+  avatar?: string;
   name?: string | null;
   email?: string | null;
 };

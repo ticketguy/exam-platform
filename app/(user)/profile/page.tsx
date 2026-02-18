@@ -48,14 +48,7 @@ export default function ProfilePage() {
     if (!session) return;
     const fetchProfile = async () => {
       try {
-        const res = await fetch(
-          `/api/v1/users/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.accessToken || ""}`,
-            },
-          },
-        );
+        const res = await fetch(`/api/v1/users/me`);
         if (!res.ok) return;
         const data = await res.json();
         setDisplayName(data.name || "");
@@ -79,8 +72,7 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
-  // Stats — will be populated from API later
-  const stats = {
+  const [stats, setStats] = useState({
     totalEarnings: 0,
     arenasEntered: 0,
     wins: 0,
@@ -88,7 +80,33 @@ export default function ProfilePage() {
     avgScore: 0,
     streak: 0,
     rank: 0,
-  };
+  });
+
+  // Fetch stats from profile data
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const res = await fetch("/api/v1/users/me");
+        if (res.ok) {
+          const data = await res.json();
+          const completed = data.examStats?.completed || 0;
+          const passed = data.examStats?.passed || 0;
+          setStats({
+            totalEarnings: data.wallet?.balance || 0,
+            arenasEntered: completed,
+            wins: passed,
+            winRate: completed > 0 ? Math.round((passed / completed) * 100) : 0,
+            avgScore: data.examStats?.avgScore || 0,
+            streak: 0,
+            rank: 0,
+          });
+        }
+      } catch {
+        // fallback
+      }
+    }
+    loadStats();
+  }, []);
 
   const recentArenas: { name: string; result: string; prize: number; date: string }[] = [];
 
@@ -124,10 +142,7 @@ export default function ProfilePage() {
     try {
       await fetch(`/api/v1/users/me`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.accessToken || ""}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
     } catch {
@@ -153,10 +168,7 @@ export default function ProfilePage() {
         try {
           await fetch(`/api/v1/users/me`, {
             method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.accessToken || ""}`,
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ avatar: dataUrl }),
           });
         } catch {

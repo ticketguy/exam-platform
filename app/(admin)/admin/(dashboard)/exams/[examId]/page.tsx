@@ -24,42 +24,6 @@ type Question = {
   points: number;
 };
 
-// Mock existing exam data
-const mockExistingExam = {
-  id: "1",
-  title: "Mathematics Sprint 2025",
-  description:
-    "Comprehensive mathematics assessment covering algebra, geometry, and calculus",
-  category: "Mathematics",
-  difficulty: "Medium",
-  duration: 60,
-  passmark: 70,
-  published: true,
-  questions: [
-    {
-      id: "q1",
-      questionText: "What is 2 + 2?",
-      options: ["3", "4", "5", "6"],
-      correctAnswer: 1,
-      points: 1,
-    },
-    {
-      id: "q2",
-      questionText: "What is the square root of 16?",
-      options: ["2", "4", "8", "16"],
-      correctAnswer: 1,
-      points: 1,
-    },
-    {
-      id: "q3",
-      questionText: "What is 10 × 5?",
-      options: ["15", "50", "55", "100"],
-      correctAnswer: 1,
-      points: 1,
-    },
-  ],
-};
-
 export default function EditExamPage() {
   const params = useParams();
   const router = useRouter();
@@ -89,19 +53,41 @@ export default function EditExamPage() {
 
   // Preview mode
   const [previewMode, setPreviewMode] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [submitError, setSubmitError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  // Load existing exam data
+  // Load existing exam data from API
   useEffect(() => {
-    // In real app, fetch from API using examId
-    const exam = mockExistingExam;
-    setTitle(exam.title);
-    setDescription(exam.description);
-    setCategory(exam.category);
-    setDifficulty(exam.difficulty);
-    setDuration(exam.duration);
-    setPassmark(exam.passmark);
-    setPublished(exam.published);
-    setQuestions(exam.questions);
+    async function fetchExam() {
+      try {
+        const res = await fetch(`/api/v1/admin/exams/${examId}`);
+        if (res.ok) {
+          const exam = await res.json();
+          setTitle(exam.title);
+          setDescription(exam.description || "");
+          setCategory(exam.category);
+          setDifficulty(exam.difficulty);
+          setDuration(exam.duration);
+          setPassmark(exam.passmark);
+          setPublished(exam.published);
+          setQuestions(
+            (exam.questions || []).map((q: { id: string; questionText: string; options: string | string[]; correctAnswer: number; points: number }) => ({
+              id: q.id,
+              questionText: q.questionText,
+              options: typeof q.options === "string" ? JSON.parse(q.options) : q.options,
+              correctAnswer: q.correctAnswer,
+              points: q.points,
+            }))
+          );
+        }
+      } catch (error) {
+        console.error("Failed to fetch exam:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchExam();
   }, [examId]);
 
   // Add or update question
@@ -182,7 +168,7 @@ export default function EditExamPage() {
   };
 
   // Submit exam
-  const handleSubmit = (shouldPublish: boolean) => {
+  const handleSubmit = async (shouldPublish: boolean) => {
     if (!title.trim()) {
       alert("Please enter exam title");
       return;
@@ -193,33 +179,73 @@ export default function EditExamPage() {
       return;
     }
 
-    const examData = {
-      id: examId,
-      title,
-      description,
-      category,
-      difficulty,
-      duration,
-      passmark,
-      questions,
-      published: shouldPublish,
-      totalQuestions: questions.length,
-      totalPoints: questions.reduce((sum, q) => sum + q.points, 0),
-    };
+    setSubmitting(true);
+    setSubmitError("");
 
-    console.log("Updated Exam Data:", examData);
-    alert(
-      `Exam updated and ${shouldPublish ? "published" : "saved as draft"}!`,
-    );
-    router.push("/admin/exams");
+    try {
+      const res = await fetch(`/api/v1/admin/exams/${examId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description,
+          category,
+          difficulty,
+          duration,
+          passmark,
+          published: shouldPublish,
+          questions: questions.map((q) => ({
+            questionText: q.questionText,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            points: q.points,
+          })),
+        }),
+      });
+
+      if (res.ok) {
+        router.push("/admin/exams");
+      } else {
+        const err = await res.json();
+        setSubmitError(err.detail || "Failed to update exam");
+      }
+    } catch {
+      setSubmitError("Failed to update exam");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Toggle publish status
-  const handleTogglePublish = () => {
+  const handleTogglePublish = async () => {
     const newStatus = !published;
-    setPublished(newStatus);
-    alert(`Exam ${newStatus ? "published" : "unpublished"}!`);
+    try {
+      const res = await fetch(`/api/v1/admin/exams/${examId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published: newStatus }),
+      });
+      if (res.ok) {
+        setPublished(newStatus);
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Failed to toggle publish status");
+      }
+    } catch {
+      alert("Failed to toggle publish status");
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-gray-600 border-t-white rounded-full animate-spin" />
+          <p className="text-gray-400 text-sm">Loading exam...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (previewMode) {
     return (
@@ -602,6 +628,13 @@ export default function EditExamPage() {
         )}
       </div>
 
+      {/* Error Display */}
+      {submitError && (
+        <div className="bg-red-900 border border-red-600 rounded-lg p-3">
+          <p className="text-red-400 text-sm">{submitError}</p>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="flex flex-col md:flex-row gap-4">
         <button
@@ -613,15 +646,17 @@ export default function EditExamPage() {
         </button>
         <button
           onClick={() => handleSubmit(false)}
+          disabled={submitting}
           className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition"
         >
-          <FaSave /> Save Changes
+          <FaSave /> {submitting ? "Saving..." : "Save Changes"}
         </button>
         <button
           onClick={() => handleSubmit(true)}
+          disabled={submitting}
           className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition"
         >
-          <FaSave /> Save & Publish
+          <FaSave /> {submitting ? "Publishing..." : "Save & Publish"}
         </button>
       </div>
     </div>

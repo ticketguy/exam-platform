@@ -1,7 +1,7 @@
 "use client";
 
 import OverViewCard from "@/components/ui/OverViewCard";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   FaSearch,
   FaFilter,
@@ -14,7 +14,6 @@ import {
   FaUser,
 } from "react-icons/fa";
 
-// Transaction types
 type TransactionType = "deposit" | "withdrawal" | "adjustment" | "exam_fee";
 type TriggeredBy = "system" | "user" | "admin";
 
@@ -24,119 +23,20 @@ interface Transaction {
   userName: string;
   userEmail: string;
   type: TransactionType;
-  amount: number; // positive for credits, negative for debits
+  amount: number;
   balanceBefore: number;
   balanceAfter: number;
   triggeredBy: TriggeredBy;
-  adminName?: string;
-  reason?: string;
-  notes?: string;
-  relatedId?: string; // deposit_id, withdrawal_id, exam_id, etc.
+  adminName?: string | null;
+  reason?: string | null;
+  notes?: string | null;
+  relatedId?: string | null;
   createdAt: string;
 }
 
-// Mock transactions data
-const mockTransactions: Transaction[] = [
-  {
-    id: "txn_001",
-    userId: "user_001",
-    userName: "John Doe",
-    userEmail: "john@example.com",
-    type: "deposit",
-    amount: 100.5,
-    balanceBefore: 50.0,
-    balanceAfter: 150.5,
-    triggeredBy: "system",
-    relatedId: "dep_001",
-    createdAt: "2025-01-20 10:45:00",
-  },
-  {
-    id: "txn_002",
-    userId: "user_002",
-    userName: "Jane Smith",
-    userEmail: "jane@example.com",
-    type: "withdrawal",
-    amount: -75.0,
-    balanceBefore: 200.0,
-    balanceAfter: 125.0,
-    triggeredBy: "user",
-    relatedId: "wth_001",
-    createdAt: "2025-01-20 11:30:00",
-  },
-  {
-    id: "txn_003",
-    userId: "user_003",
-    userName: "Bob Johnson",
-    userEmail: "bob@example.com",
-    type: "adjustment",
-    amount: 50.0,
-    balanceBefore: 100.0,
-    balanceAfter: 150.0,
-    triggeredBy: "admin",
-    adminName: "Admin User",
-    reason: "Support case #1234",
-    notes:
-      "User reported missing deposit, manually credited after verification",
-    createdAt: "2025-01-20 14:15:00",
-  },
-  {
-    id: "txn_004",
-    userId: "user_004",
-    userName: "Alice Williams",
-    userEmail: "alice@example.com",
-    type: "exam_fee",
-    amount: -25.0,
-    balanceBefore: 100.0,
-    balanceAfter: 75.0,
-    triggeredBy: "system",
-    relatedId: "exam_001",
-    createdAt: "2025-01-21 09:00:00",
-  },
-  {
-    id: "txn_005",
-    userId: "user_005",
-    userName: "Charlie Brown",
-    userEmail: "charlie@example.com",
-    type: "deposit",
-    amount: 1000.0,
-    balanceBefore: 0.0,
-    balanceAfter: 1000.0,
-    triggeredBy: "system",
-    relatedId: "dep_005",
-    createdAt: "2025-01-18 09:15:00",
-  },
-  {
-    id: "txn_006",
-    userId: "user_006",
-    userName: "Diana Prince",
-    userEmail: "diana@example.com",
-    type: "adjustment",
-    amount: -100.0,
-    balanceBefore: 500.0,
-    balanceAfter: 400.0,
-    triggeredBy: "admin",
-    adminName: "Admin User",
-    reason: "Chargeback - Fraudulent activity",
-    notes: "Reversed credit due to confirmed fraudulent transaction",
-    createdAt: "2025-01-19 16:30:00",
-  },
-  {
-    id: "txn_007",
-    userId: "user_001",
-    userName: "John Doe",
-    userEmail: "john@example.com",
-    type: "withdrawal",
-    amount: -50.0,
-    balanceBefore: 150.5,
-    balanceAfter: 100.5,
-    triggeredBy: "user",
-    relatedId: "wth_007",
-    createdAt: "2025-01-21 12:00:00",
-  },
-];
-
 export default function TransactionsPage() {
-  const [transactions] = useState(mockTransactions);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"all" | TransactionType>("all");
   const [filterTriggeredBy, setFilterTriggeredBy] = useState<
@@ -144,6 +44,30 @@ export default function TransactionsPage() {
   >("all");
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
+
+  const fetchTransactions = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (filterType !== "all") params.set("type", filterType);
+      if (filterTriggeredBy !== "all") params.set("triggeredBy", filterTriggeredBy);
+      if (searchTerm) params.set("search", searchTerm);
+      params.set("limit", "50");
+
+      const res = await fetch(`/api/v1/admin/transactions?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTransactions(data.transactions);
+      }
+    } catch (error) {
+      console.error("Failed to fetch transactions:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterType, filterTriggeredBy, searchTerm]);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
 
   // Calculate stats
   const totalTransactions = transactions.length;
@@ -155,54 +79,22 @@ export default function TransactionsPage() {
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
   const netChange = totalCredits - totalDebits;
 
-  // Filter transactions
-  const filteredTransactions = transactions.filter((transaction) => {
-    const matchesSearch =
-      transaction.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.id.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesType = filterType === "all" || transaction.type === filterType;
-    const matchesTriggeredBy =
-      filterTriggeredBy === "all" ||
-      transaction.triggeredBy === filterTriggeredBy;
-
-    return matchesSearch && matchesType && matchesTriggeredBy;
-  });
-
   // Get transaction type display info
   const getTypeInfo = (type: TransactionType) => {
     switch (type) {
       case "deposit":
-        return {
-          label: "Deposit",
-          color: "text-green-400",
-          icon: <FaArrowDown />,
-        };
+        return { label: "Deposit", color: "text-green-400", icon: <FaArrowDown /> };
       case "withdrawal":
-        return {
-          label: "Withdrawal",
-          color: "text-red-400",
-          icon: <FaArrowUp />,
-        };
+        return { label: "Withdrawal", color: "text-red-400", icon: <FaArrowUp /> };
       case "adjustment":
-        return {
-          label: "Adjustment",
-          color: "text-blue-400",
-          icon: <FaExchangeAlt />,
-        };
+        return { label: "Adjustment", color: "text-blue-400", icon: <FaExchangeAlt /> };
       case "exam_fee":
-        return {
-          label: "Exam Fee",
-          color: "text-purple-400",
-          icon: <FaExchangeAlt />,
-        };
+        return { label: "Exam Fee", color: "text-purple-400", icon: <FaExchangeAlt /> };
       default:
         return { label: type, color: "text-gray-400", icon: <FaExchangeAlt /> };
     }
   };
 
-  // Get triggered by icon
   const getTriggeredByIcon = (triggeredBy: TriggeredBy) => {
     switch (triggeredBy) {
       case "system":
@@ -216,34 +108,15 @@ export default function TransactionsPage() {
     }
   };
 
-  // Export CSV
   const handleExportCSV = () => {
     const csvHeaders = [
-      "ID",
-      "Type",
-      "User",
-      "Email",
-      "Amount",
-      "Balance Before",
-      "Balance After",
-      "Triggered By",
-      "Admin",
-      "Reason",
-      "Date",
+      "ID", "Type", "User", "Email", "Amount", "Balance Before",
+      "Balance After", "Triggered By", "Admin", "Reason", "Date",
     ];
-
-    const csvData = filteredTransactions.map((t) => [
-      t.id,
-      t.type,
-      t.userName,
-      t.userEmail,
-      t.amount,
-      t.balanceBefore,
-      t.balanceAfter,
-      t.triggeredBy,
-      t.adminName || "",
-      t.reason || "",
-      t.createdAt,
+    const csvData = transactions.map((t) => [
+      t.id, t.type, t.userName, t.userEmail, t.amount, t.balanceBefore,
+      t.balanceAfter, t.triggeredBy, t.adminName || "", t.reason || "",
+      new Date(t.createdAt).toLocaleString(),
     ]);
 
     const csv = [
@@ -258,6 +131,17 @@ export default function TransactionsPage() {
     a.download = `transactions_${new Date().toISOString()}.csv`;
     a.click();
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-gray-600 border-t-white rounded-full animate-spin" />
+          <p className="text-gray-400 text-sm">Loading transactions...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -279,10 +163,7 @@ export default function TransactionsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <OverViewCard
-          title="Total Transactions"
-          value={`${totalTransactions}`}
-        />
+        <OverViewCard title="Total Transactions" value={`${totalTransactions}`} />
         <OverViewCard
           title="Total Credits"
           value={`+${totalCredits.toFixed(2)} DGB`}
@@ -323,7 +204,7 @@ export default function TransactionsPage() {
             </label>
             <select
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value as any)}
+              onChange={(e) => setFilterType(e.target.value as typeof filterType)}
               className="w-full fadeInput rounded-lg px-3 py-2 text-white"
             >
               <option value="all">All Types</option>
@@ -339,7 +220,7 @@ export default function TransactionsPage() {
             </label>
             <select
               value={filterTriggeredBy}
-              onChange={(e) => setFilterTriggeredBy(e.target.value as any)}
+              onChange={(e) => setFilterTriggeredBy(e.target.value as typeof filterTriggeredBy)}
               className="w-full fadeInput rounded-lg px-3 py-2 text-white"
             >
               <option value="all">All</option>
@@ -353,12 +234,12 @@ export default function TransactionsPage() {
 
       {/* Transactions List - Mobile Cards */}
       <div className="lg:hidden space-y-3">
-        {filteredTransactions.length === 0 ? (
+        {transactions.length === 0 ? (
           <div className="redCard p-8 text-center">
             <p className="text-gray-400">No transactions found</p>
           </div>
         ) : (
-          filteredTransactions.map((transaction) => {
+          transactions.map((transaction) => {
             const typeInfo = getTypeInfo(transaction.type);
             return (
               <div
@@ -368,60 +249,39 @@ export default function TransactionsPage() {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-white font-semibold">
-                      {transaction.userName}
-                    </h3>
-                    <p className="text-gray-400 text-xs">
-                      {transaction.userEmail}
-                    </p>
+                    <h3 className="text-white font-semibold">{transaction.userName}</h3>
+                    <p className="text-gray-400 text-xs">{transaction.userEmail}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {getTriggeredByIcon(transaction.triggeredBy)}
-                    <span className={`text-sm ${typeInfo.color}`}>
-                      {typeInfo.icon}
-                    </span>
+                    <span className={`text-sm ${typeInfo.color}`}>{typeInfo.icon}</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
                   <div>
                     <p className="text-gray-400 text-xs">Type</p>
-                    <p className={`font-medium ${typeInfo.color}`}>
-                      {typeInfo.label}
-                    </p>
+                    <p className={`font-medium ${typeInfo.color}`}>{typeInfo.label}</p>
                   </div>
                   <div>
                     <p className="text-gray-400 text-xs">Amount</p>
-                    <p
-                      className={`font-bold ${
-                        transaction.amount >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {transaction.amount >= 0 ? "+" : ""}
-                      {transaction.amount} DGB
+                    <p className={`font-bold ${transaction.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {transaction.amount >= 0 ? "+" : ""}{transaction.amount} DGB
                     </p>
                   </div>
                   <div>
                     <p className="text-gray-400 text-xs">Balance After</p>
-                    <p className="text-white font-mono">
-                      {transaction.balanceAfter} DGB
-                    </p>
+                    <p className="text-white font-mono">{transaction.balanceAfter} DGB</p>
                   </div>
                   <div>
                     <p className="text-gray-400 text-xs">Date</p>
-                    <p className="text-white text-xs">
-                      {transaction.createdAt}
-                    </p>
+                    <p className="text-white text-xs">{new Date(transaction.createdAt).toLocaleString()}</p>
                   </div>
                 </div>
 
                 {transaction.reason && (
                   <div className="pt-2 border-t border-gray-700">
-                    <p className="text-gray-400 text-xs">
-                      Reason: {transaction.reason}
-                    </p>
+                    <p className="text-gray-400 text-xs">Reason: {transaction.reason}</p>
                   </div>
                 )}
               </div>
@@ -432,7 +292,7 @@ export default function TransactionsPage() {
 
       {/* Transactions List - Desktop Table */}
       <div className="hidden lg:block redCard overflow-hidden">
-        {filteredTransactions.length === 0 ? (
+        {transactions.length === 0 ? (
           <div className="p-8 text-center">
             <p className="text-gray-400">No transactions found</p>
           </div>
@@ -441,31 +301,17 @@ export default function TransactionsPage() {
             <table className="w-full">
               <thead className="darkCard">
                 <tr>
-                  <th className="text-left text-gray-400 font-medium py-3 px-4">
-                    User
-                  </th>
-                  <th className="text-left text-gray-400 font-medium py-3 px-4">
-                    Type
-                  </th>
-                  <th className="text-right text-gray-400 font-medium py-3 px-4">
-                    Amount
-                  </th>
-                  <th className="text-right text-gray-400 font-medium py-3 px-4">
-                    Balance Before
-                  </th>
-                  <th className="text-right text-gray-400 font-medium py-3 px-4">
-                    Balance After
-                  </th>
-                  <th className="text-center text-gray-400 font-medium py-3 px-4">
-                    Triggered By
-                  </th>
-                  <th className="text-left text-gray-400 font-medium py-3 px-4">
-                    Date
-                  </th>
+                  <th className="text-left text-gray-400 font-medium py-3 px-4">User</th>
+                  <th className="text-left text-gray-400 font-medium py-3 px-4">Type</th>
+                  <th className="text-right text-gray-400 font-medium py-3 px-4">Amount</th>
+                  <th className="text-right text-gray-400 font-medium py-3 px-4">Balance Before</th>
+                  <th className="text-right text-gray-400 font-medium py-3 px-4">Balance After</th>
+                  <th className="text-center text-gray-400 font-medium py-3 px-4">Triggered By</th>
+                  <th className="text-left text-gray-400 font-medium py-3 px-4">Date</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.map((transaction) => {
+                {transactions.map((transaction) => {
                   const typeInfo = getTypeInfo(transaction.type);
                   return (
                     <tr
@@ -475,28 +321,19 @@ export default function TransactionsPage() {
                     >
                       <td className="py-3 px-4">
                         <div>
-                          <p className="text-white font-medium">
-                            {transaction.userName}
-                          </p>
-                          <p className="text-gray-400 text-xs">
-                            {transaction.userEmail}
-                          </p>
+                          <p className="text-white font-medium">{transaction.userName}</p>
+                          <p className="text-gray-400 text-xs">{transaction.userEmail}</p>
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center gap-1 ${typeInfo.color}`}
-                        >
+                        <span className={`inline-flex items-center gap-1 ${typeInfo.color}`}>
                           {typeInfo.icon}
                           <span>{typeInfo.label}</span>
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <span
-                          className={`font-mono font-bold ${transaction.amount >= 0 ? "text-green-400" : "text-red-400"}`}
-                        >
-                          {transaction.amount >= 0 ? "+" : ""}
-                          {transaction.amount} DGB
+                        <span className={`font-mono font-bold ${transaction.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
+                          {transaction.amount >= 0 ? "+" : ""}{transaction.amount} DGB
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right text-gray-300 font-mono">
@@ -508,13 +345,11 @@ export default function TransactionsPage() {
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           {getTriggeredByIcon(transaction.triggeredBy)}
-                          <span className="text-gray-300 text-sm capitalize">
-                            {transaction.triggeredBy}
-                          </span>
+                          <span className="text-gray-300 text-sm capitalize">{transaction.triggeredBy}</span>
                         </div>
                       </td>
                       <td className="py-3 px-4 text-gray-300 text-sm">
-                        {transaction.createdAt}
+                        {new Date(transaction.createdAt).toLocaleString()}
                       </td>
                     </tr>
                   );
@@ -529,15 +364,10 @@ export default function TransactionsPage() {
       {selectedTransaction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="darkCard p-6 max-w-2xl w-full max-h-[95vh] overflow-y-auto no-scrollbar">
-            {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-white text-xl font-bold">
-                  Transaction Details
-                </h2>
-                <p className="text-gray-400 text-sm font-mono">
-                  {selectedTransaction.id}
-                </p>
+                <h2 className="text-white text-xl font-bold">Transaction Details</h2>
+                <p className="text-gray-400 text-sm font-mono">{selectedTransaction.id}</p>
               </div>
               <button
                 onClick={() => setSelectedTransaction(null)}
@@ -547,83 +377,57 @@ export default function TransactionsPage() {
               </button>
             </div>
 
-            {/* Amount Highlight */}
             <div className="bg-gray-800 rounded-lg p-4 mb-6">
               <p className="text-gray-400 text-sm">Transaction Amount</p>
               <div className="flex items-center justify-between mt-1">
-                <p
-                  className={`text-3xl font-bold ${selectedTransaction.amount >= 0 ? "text-green-400" : "text-red-400"}`}
-                >
-                  {selectedTransaction.amount >= 0 ? "+" : ""}
-                  {selectedTransaction.amount} DGB
+                <p className={`text-3xl font-bold ${selectedTransaction.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  {selectedTransaction.amount >= 0 ? "+" : ""}{selectedTransaction.amount} DGB
                 </p>
-                <span
-                  className={`text-sm font-semibold px-3 py-1 rounded-full ${getTypeInfo(selectedTransaction.type).color}`}
-                >
+                <span className={`text-sm font-semibold px-3 py-1 rounded-full ${getTypeInfo(selectedTransaction.type).color}`}>
                   {getTypeInfo(selectedTransaction.type).label}
                 </span>
               </div>
             </div>
 
-            {/* User + Trigger */}
             <div className="grid grid-cols-2 gap-6 mb-6">
               <div>
                 <p className="text-gray-400 text-sm mb-1">User</p>
-                <p className="text-white font-medium">
-                  {selectedTransaction.userName}
-                </p>
-                <p className="text-gray-400 text-xs">
-                  {selectedTransaction.userEmail}
-                </p>
+                <p className="text-white font-medium">{selectedTransaction.userName}</p>
+                <p className="text-gray-400 text-xs">{selectedTransaction.userEmail}</p>
               </div>
-
               <div>
                 <p className="text-gray-400 text-sm mb-1">Triggered By</p>
                 <div className="flex items-center gap-2">
                   {getTriggeredByIcon(selectedTransaction.triggeredBy)}
-                  <span className="text-white capitalize">
-                    {selectedTransaction.triggeredBy}
-                  </span>
+                  <span className="text-white capitalize">{selectedTransaction.triggeredBy}</span>
                 </div>
                 {selectedTransaction.adminName && (
-                  <p className="text-gray-400 text-xs mt-1">
-                    Admin: {selectedTransaction.adminName}
-                  </p>
+                  <p className="text-gray-400 text-xs mt-1">Admin: {selectedTransaction.adminName}</p>
                 )}
               </div>
             </div>
 
-            {/* Balances */}
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div>
                 <p className="text-gray-400 text-sm">Before</p>
-                <p className="text-white font-mono">
-                  {selectedTransaction.balanceBefore} DGB
-                </p>
+                <p className="text-white font-mono">{selectedTransaction.balanceBefore} DGB</p>
               </div>
               <div>
                 <p className="text-gray-400 text-sm">After</p>
-                <p className="text-white font-mono font-bold">
-                  {selectedTransaction.balanceAfter} DGB
-                </p>
+                <p className="text-white font-mono font-bold">{selectedTransaction.balanceAfter} DGB</p>
               </div>
               <div>
                 <p className="text-gray-400 text-sm">Date</p>
-                <p className="text-white text-sm">
-                  {selectedTransaction.createdAt}
-                </p>
+                <p className="text-white text-sm">{new Date(selectedTransaction.createdAt).toLocaleString()}</p>
               </div>
             </div>
 
-            {/* Metadata */}
             {(selectedTransaction.relatedId || selectedTransaction.reason) && (
               <div className="space-y-4 mb-6">
                 {selectedTransaction.relatedId && (
                   <div>
                     <p className="text-gray-400 text-sm">Related ID</p>
-                    <p className="text-white font-mono">
-                      {selectedTransaction.relatedId}
-                    </p>
+                    <p className="text-white font-mono">{selectedTransaction.relatedId}</p>
                   </div>
                 )}
                 {selectedTransaction.reason && (
@@ -635,17 +439,13 @@ export default function TransactionsPage() {
               </div>
             )}
 
-            {/* Notes */}
             {selectedTransaction.notes && (
               <div className="mb-6">
                 <p className="text-gray-400 text-sm mb-1">Notes</p>
-                <div className="bg-gray-800 p-3 rounded text-white">
-                  {selectedTransaction.notes}
-                </div>
+                <div className="bg-gray-800 p-3 rounded text-white">{selectedTransaction.notes}</div>
               </div>
             )}
 
-            {/* Footer */}
             <div className="flex gap-2">
               <button
                 onClick={() => setSelectedTransaction(null)}

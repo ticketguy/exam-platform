@@ -1,112 +1,75 @@
-import crypto from "crypto";
+import bcrypt from "bcryptjs";
+import prisma from "./prisma";
+import type { User } from "@prisma/client";
 
-export interface StoredUser {
-  id: string;
+export type { User };
+
+export async function findUserByEmail(email: string): Promise<User | null> {
+  return prisma.user.findUnique({ where: { email } });
+}
+
+export async function findUserById(id: string): Promise<User | null> {
+  return prisma.user.findUnique({ where: { id } });
+}
+
+export async function findUserByNickname(
+  nickname: string
+): Promise<User | null> {
+  return prisma.user.findUnique({ where: { nickname } });
+}
+
+export async function createUser(data: {
   name: string;
   nickname: string;
   email: string;
   password: string;
-  role: "user" | "admin";
-  avatar: string | null;
-  bio: string | null;
-  createdAt: string;
-}
-
-// In-memory user store (resets on server restart)
-const users: Map<string, StoredUser> = new Map();
-
-// Seed a default admin
-const adminId = "admin-001";
-users.set(adminId, {
-  id: adminId,
-  name: "Chief Idoko",
-  nickname: "chiefidoko",
-  email: "admin@nocho.ng",
-  password: "admin123",
-  role: "admin",
-  avatar: null,
-  bio: null,
-  createdAt: new Date().toISOString(),
-});
-
-// Seed a demo user
-const demoId = "user-001";
-users.set(demoId, {
-  id: demoId,
-  name: "Demo User",
-  nickname: "AceBrain",
-  email: "demo@nocho.ng",
-  password: "demo123",
-  role: "user",
-  avatar: null,
-  bio: "Knowledge trader since day one.",
-  createdAt: new Date().toISOString(),
-});
-
-export function findUserByEmail(email: string): StoredUser | undefined {
-  for (const user of users.values()) {
-    if (user.email === email) return user;
-  }
-  return undefined;
-}
-
-export function findUserById(id: string): StoredUser | undefined {
-  return users.get(id);
-}
-
-export function findUserByNickname(nickname: string): StoredUser | undefined {
-  for (const user of users.values()) {
-    if (user.nickname === nickname) return user;
-  }
-  return undefined;
-}
-
-export function createUser(data: {
-  name: string;
-  nickname: string;
-  email: string;
-  password: string;
-}): StoredUser | { error: string } {
-  if (findUserByEmail(data.email)) {
+}): Promise<User | { error: string }> {
+  const existingEmail = await findUserByEmail(data.email);
+  if (existingEmail) {
     return { error: "Email already registered" };
   }
-  if (findUserByNickname(data.nickname)) {
+
+  const existingNickname = await findUserByNickname(data.nickname);
+  if (existingNickname) {
     return { error: "Nickname already taken" };
   }
 
-  const user: StoredUser = {
-    id: crypto.randomUUID(),
-    name: data.name,
-    nickname: data.nickname,
-    email: data.email,
-    password: data.password,
-    role: "user",
-    avatar: null,
-    bio: null,
-    createdAt: new Date().toISOString(),
-  };
+  const passwordHash = await bcrypt.hash(data.password, 12);
 
-  users.set(user.id, user);
+  const user = await prisma.user.create({
+    data: {
+      name: data.name,
+      nickname: data.nickname,
+      email: data.email,
+      passwordHash,
+      role: "user",
+    },
+  });
+
   return user;
 }
 
-export function updateUser(
+export async function updateUser(
   id: string,
-  data: Partial<Pick<StoredUser, "name" | "nickname" | "bio" | "avatar">>
-): StoredUser | null {
-  const user = users.get(id);
+  data: Partial<Pick<User, "name" | "nickname" | "bio" | "avatar">>
+): Promise<User | null> {
+  const user = await prisma.user.findUnique({ where: { id } });
   if (!user) return null;
 
-  if (data.name !== undefined) user.name = data.name;
-  if (data.nickname !== undefined) user.nickname = data.nickname;
-  if (data.bio !== undefined) user.bio = data.bio;
-  if (data.avatar !== undefined) user.avatar = data.avatar;
-
-  users.set(id, user);
-  return user;
+  return prisma.user.update({
+    where: { id },
+    data,
+  });
 }
 
-export function userToPublic(user: StoredUser) {
+export async function verifyPassword(
+  plaintext: string,
+  hash: string
+): Promise<boolean> {
+  return bcrypt.compare(plaintext, hash);
+}
+
+export function userToPublic(user: User) {
   return {
     id: user.id,
     name: user.name,
@@ -115,17 +78,7 @@ export function userToPublic(user: StoredUser) {
     role: user.role,
     avatar: user.avatar,
     bio: user.bio,
+    emailVerified: user.emailVerified,
     createdAt: user.createdAt,
   };
-}
-
-// --- Platform settings (in-memory) ---
-let waitlistEnabled = true;
-
-export function getWaitlistEnabled(): boolean {
-  return waitlistEnabled;
-}
-
-export function setWaitlistEnabled(enabled: boolean): void {
-  waitlistEnabled = enabled;
 }

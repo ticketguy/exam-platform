@@ -104,7 +104,7 @@ export default function Page() {
   }, [session, router]);
 
   useEffect(() => {
-    fetch("/api/v1/settings")
+    fetch("/api/v1/settings", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => setWaitlistEnabled(data.waitlistEnabled))
       .catch(() => {});

@@ -1,11 +1,47 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { FaTrophy } from "react-icons/fa6";
 import { FaArrowLeft } from "react-icons/fa";
 
-const LeaderBoardPage = () => {
+interface LeaderEntry {
+  rank: number;
+  nickname: string;
+  totalEarnings: number;
+}
+
+export default function LeaderBoardPage() {
+  const [entries, setEntries] = useState<LeaderEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch("/api/v1/leaderboard?limit=50");
+        if (res.ok) {
+          const data = await res.json();
+          setEntries(Array.isArray(data) ? data : []);
+        }
+      } catch {
+        // silent
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <div className="w-8 h-8 border-2 border-[#8B1E1E]/30 border-t-[#8B1E1E] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full mb-25 text-white">
-      {/* Back to Dashboard */}
       <Link
         href="/dashboard"
         className="inline-flex items-center gap-2 text-sm text-[var(--muted)] hover:text-[var(--text-primary)] transition mb-2 mt-4 ml-4 sm:ml-6"
@@ -14,46 +50,56 @@ const LeaderBoardPage = () => {
         Back to Dashboard
       </Link>
 
-      {/* Global Leaderboard */}
       <div className="md:w-[95%] lg:w-[90%] mt-8 mx-auto bg-[#ffffff10] border border-[#ffffff20] rounded-3xl shadow-lg px-6 py-6">
-        {/* Header */}
         <div className="flex items-center gap-3 mb-2">
           <FaTrophy color="gold" size={20} />
           <h3 className="text-[18px] font-semibold">Global Leaderboard</h3>
         </div>
+        <p className="text-[#aaa] text-sm mb-4">Top earners on the platform</p>
 
-        <p className="text-[#aaa] text-sm mb-4">Live Results</p>
-
-        {/* Leaderboard List */}
         <div className="flex flex-col gap-3">
-          {[
-            "AceBrain",
-            "QuantumKid",
-            "NovaMind",
-            "LogicLord",
-            "ByteQueen",
-            "ThinkFast",
-            "BrainiacX",
-          ].map((name, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between bg-[#00000030] border border-[#ffffff10] rounded-xl px-4 py-3"
-            >
-              <div className="flex items-center gap-4">
-                <span className="text-[#aaa] font-semibold">#{index + 1}</span>
-                <span className="font-medium">{name}</span>
+          {entries.length > 0 ? (
+            entries.map((entry) => (
+              <div
+                key={entry.rank}
+                className={`flex items-center justify-between rounded-xl px-4 py-3 border ${
+                  entry.rank === 1
+                    ? "bg-yellow-400/10 border-yellow-400/30"
+                    : entry.rank === 2
+                      ? "bg-gray-300/10 border-gray-300/30"
+                      : entry.rank === 3
+                        ? "bg-orange-400/10 border-orange-400/30"
+                        : "bg-[#00000030] border-[#ffffff10]"
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <span
+                    className={`font-semibold ${
+                      entry.rank === 1
+                        ? "text-yellow-400"
+                        : entry.rank === 2
+                          ? "text-gray-300"
+                          : entry.rank === 3
+                            ? "text-orange-400"
+                            : "text-[#aaa]"
+                    }`}
+                  >
+                    #{entry.rank}
+                  </span>
+                  <span className="font-medium">{entry.nickname}</span>
+                </div>
+                <span className="font-mono text-sm text-[#aaa]">
+                  DGB {entry.totalEarnings?.toLocaleString() || 0}
+                </span>
               </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-[#aaa]">
+              <p>No leaderboard data yet. Be the first to earn!</p>
             </div>
-          ))}
+          )}
         </div>
-
-        {/* See More */}
-        <button className="mt-5 w-full py-3 bg-[#00000040] border border-[#ffffff30] rounded-xl text-sm text-white font-semibold hover:bg-[#00000060] transition">
-          See remaining 1,230 participants
-        </button>
       </div>
     </div>
   );
-};
-
-export default LeaderBoardPage;
+}

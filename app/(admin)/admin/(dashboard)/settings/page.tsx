@@ -14,89 +14,41 @@ import {
   FaGlobe,
 } from "react-icons/fa";
 
-// Mock data
-const mockSettings = {
-  dgbMode: "mock" as "mock" | "live",
-  rpcHost: "localhost",
-  rpcPort: 14022,
-  rpcUsername: "digibyte",
-  rpcPassword: "********",
-  confirmationsRequired: 6,
-  addressRotation: true,
-  sessionTimeout: 30,
-  maxLoginAttempts: 5,
-  maxWithdrawalPerHour: 3,
-  maxApiCallsPerMinute: 60,
-  defaultExamDuration: 60,
-  defaultPassMark: 70,
-  allowExamRetakes: true,
-  showAnswersAfterCompletion: false,
-};
-
-const mockAdmins = [
-  {
-    id: "admin_001",
-    name: "Admin User",
-    email: "admin@example.com",
-    role: "super_admin",
-    lastLogin: "2025-01-21 08:30:00",
-  },
-  {
-    id: "admin_002",
-    name: "Support Admin",
-    email: "support@example.com",
-    role: "admin",
-    lastLogin: "2025-01-20 15:45:00",
-  },
-];
+interface Admin {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  lastLogin: string;
+}
 
 export default function SettingsPage() {
   // DigiByte Settings
-  const [dgbMode, setDgbMode] = useState(mockSettings.dgbMode);
-  const [rpcHost, setRpcHost] = useState(mockSettings.rpcHost);
-  const [rpcPort, setRpcPort] = useState(mockSettings.rpcPort);
-  const [rpcUsername, setRpcUsername] = useState(mockSettings.rpcUsername);
-  const [rpcPassword, setRpcPassword] = useState(mockSettings.rpcPassword);
-  const [confirmationsRequired, setConfirmationsRequired] = useState(
-    mockSettings.confirmationsRequired,
-  );
-  const [addressRotation, setAddressRotation] = useState(
-    mockSettings.addressRotation,
-  );
+  const [dgbMode, setDgbMode] = useState<"mock" | "live">("mock");
+  const [rpcHost, setRpcHost] = useState("localhost");
+  const [rpcPort, setRpcPort] = useState(14022);
+  const [rpcUsername, setRpcUsername] = useState("digibyte");
+  const [rpcPassword, setRpcPassword] = useState("");
+  const [confirmationsRequired, setConfirmationsRequired] = useState(6);
+  const [addressRotation, setAddressRotation] = useState(true);
   const [rpcStatus, setRpcStatus] = useState<
     "testing" | "connected" | "failed" | null
   >(null);
 
   // Security Settings
-  const [sessionTimeout, setSessionTimeout] = useState(
-    mockSettings.sessionTimeout,
-  );
-  const [maxLoginAttempts, setMaxLoginAttempts] = useState(
-    mockSettings.maxLoginAttempts,
-  );
-  const [maxWithdrawalPerHour, setMaxWithdrawalPerHour] = useState(
-    mockSettings.maxWithdrawalPerHour,
-  );
-  const [maxApiCallsPerMinute, setMaxApiCallsPerMinute] = useState(
-    mockSettings.maxApiCallsPerMinute,
-  );
+  const [sessionTimeout, setSessionTimeout] = useState(30);
+  const [maxLoginAttempts, setMaxLoginAttempts] = useState(5);
+  const [maxWithdrawalPerHour, setMaxWithdrawalPerHour] = useState(3);
+  const [maxApiCallsPerMinute, setMaxApiCallsPerMinute] = useState(60);
 
   // Exam Settings
-  const [defaultExamDuration, setDefaultExamDuration] = useState(
-    mockSettings.defaultExamDuration,
-  );
-  const [defaultPassMark, setDefaultPassMark] = useState(
-    mockSettings.defaultPassMark,
-  );
-  const [allowExamRetakes, setAllowExamRetakes] = useState(
-    mockSettings.allowExamRetakes,
-  );
-  const [showAnswersAfterCompletion, setShowAnswersAfterCompletion] = useState(
-    mockSettings.showAnswersAfterCompletion,
-  );
+  const [defaultExamDuration, setDefaultExamDuration] = useState(60);
+  const [defaultPassMark, setDefaultPassMark] = useState(70);
+  const [allowExamRetakes, setAllowExamRetakes] = useState(true);
+  const [showAnswersAfterCompletion, setShowAnswersAfterCompletion] = useState(false);
 
   // Admin Management
-  const [admins, setAdmins] = useState(mockAdmins);
+  const [admins, setAdmins] = useState<Admin[]>([]);
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
   const [newAdminName, setNewAdminName] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -114,11 +66,26 @@ export default function SettingsPage() {
   >("platform");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Fetch waitlist status on mount
+  // Fetch waitlist status and admins on mount
   useEffect(() => {
-    fetch("/api/v1/settings")
+    fetch("/api/v1/settings", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => setWaitlistEnabled(data.waitlistEnabled))
+      .catch(() => {});
+
+    fetch("/api/v1/admin/admins")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setAdmins(data.map((a: { id: string; name: string; email: string; role: string; lastLoginAt: string | null }) => ({
+            id: a.id,
+            name: a.name,
+            email: a.email,
+            role: a.role,
+            lastLogin: a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString() : "Never",
+          })));
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -141,68 +108,79 @@ export default function SettingsPage() {
   // Test RPC Connection
   const handleTestConnection = async () => {
     setRpcStatus("testing");
-    // Simulate API call
-    setTimeout(() => {
-      const isValid = rpcHost && rpcPort && rpcUsername && rpcPassword;
-      setRpcStatus(isValid ? "connected" : "failed");
-      setTimeout(() => setRpcStatus(null), 3000);
-    }, 2000);
+    try {
+      const res = await fetch("/api/v1/admin/dgb-test", { method: "POST" });
+      const data = await res.json();
+      setRpcStatus(data.connected ? "connected" : "failed");
+      if (data.mode) setDgbMode(data.mode);
+    } catch {
+      setRpcStatus("failed");
+    }
+    setTimeout(() => setRpcStatus(null), 5000);
   };
 
-  // Save Settings
+  // Save Settings (these are env-based configs - shows confirmation)
   const handleSaveSettings = () => {
-    const settings = {
-      dgbMode,
-      rpcHost,
-      rpcPort,
-      rpcUsername,
-      rpcPassword,
-      confirmationsRequired,
-      addressRotation,
-      sessionTimeout,
-      maxLoginAttempts,
-      maxWithdrawalPerHour,
-      maxApiCallsPerMinute,
-      defaultExamDuration,
-      defaultPassMark,
-      allowExamRetakes,
-      showAnswersAfterCompletion,
-    };
-
-    console.log("Saving settings:", settings);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  // Add Admin
-  const handleAddAdmin = () => {
+  // Add Admin via API
+  const handleAddAdmin = async () => {
     if (!newAdminName || !newAdminEmail || !newAdminPassword) {
       alert("Please fill all fields");
       return;
     }
 
-    const newAdmin = {
-      id: `admin_${Date.now()}`,
-      name: newAdminName,
-      email: newAdminEmail,
-      role: newAdminRole,
-      lastLogin: "Never",
-    };
+    try {
+      const res = await fetch("/api/v1/admin/admins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newAdminName,
+          email: newAdminEmail,
+          password: newAdminPassword,
+          role: "admin",
+        }),
+      });
 
-    setAdmins([...admins, newAdmin]);
-    setShowAddAdminModal(false);
-    setNewAdminName("");
-    setNewAdminEmail("");
-    setNewAdminPassword("");
-    setNewAdminRole("admin");
-    alert("Admin added successfully");
+      if (res.ok) {
+        const data = await res.json();
+        setAdmins([...admins, {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          role: data.role,
+          lastLogin: "Never",
+        }]);
+        setShowAddAdminModal(false);
+        setNewAdminName("");
+        setNewAdminEmail("");
+        setNewAdminPassword("");
+        setNewAdminRole("admin");
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Failed to add admin");
+      }
+    } catch {
+      alert("Failed to add admin");
+    }
   };
 
-  // Remove Admin
-  const handleRemoveAdmin = (adminId: string) => {
-    if (confirm("Are you sure you want to remove this admin?")) {
-      setAdmins(admins.filter((a) => a.id !== adminId));
-      alert("Admin removed");
+  // Remove Admin via API
+  const handleRemoveAdmin = async (adminId: string) => {
+    if (!confirm("Are you sure you want to remove this admin?")) return;
+
+    try {
+      const res = await fetch(`/api/v1/admin/admins/${adminId}`, { method: "DELETE" });
+      if (res.ok) {
+        setAdmins(admins.filter((a) => a.id !== adminId));
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Failed to remove admin");
+      }
+    } catch {
+      alert("Failed to remove admin");
     }
   };
 

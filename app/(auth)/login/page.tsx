@@ -2,13 +2,16 @@
 
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, Suspense } from "react";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import AnimatedAuthBackground from "@/components/auth/AnimatedAuthBackground";
 
-const LoginPage = () => {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const verified = searchParams.get("verified") === "true";
+  const registered = searchParams.get("registered") === "true";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -61,6 +64,22 @@ const LoginPage = () => {
           <p className="text-sm text-gray-400 text-center mb-6">
             Enter your credentials to access your exams
           </p>
+
+          {/* Success messages */}
+          {verified && (
+            <div className="bg-green-500/15 border border-green-500/20 rounded-xl px-4 py-2.5 mb-4">
+              <p className="text-green-400 text-sm text-center">
+                Email verified successfully! You can now log in.
+              </p>
+            </div>
+          )}
+          {registered && !verified && (
+            <div className="bg-blue-500/15 border border-blue-500/20 rounded-xl px-4 py-2.5 mb-4">
+              <p className="text-blue-400 text-sm text-center">
+                Account created! Please check your email to verify before logging in.
+              </p>
+            </div>
+          )}
 
           {/* Error message */}
           {error && (
@@ -170,6 +189,12 @@ const LoginPage = () => {
       </div>
     </div>
   );
-};
+}
 
-export default LoginPage;
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}

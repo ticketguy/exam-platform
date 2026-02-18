@@ -1,7 +1,7 @@
 "use client";
 
 import OverViewCard from "@/components/ui/OverViewCard";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   FaSearch,
   FaFilter,
@@ -15,266 +15,135 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 
-// Mock withdrawals data
-const mockWithdrawals = [
-  {
-    id: "wth_001",
-    userId: "user_001",
-    userName: "John Doe",
-    userEmail: "john@example.com",
-    amount: 50.0,
-    destinationAddress: "DGb1Fc8th5kL9mN2oP3qR4sT5uV6wX7yZ8aB9cD0eF1gH2iJ3",
-    txid: "abc123def456ghi789jkl012mno345pqr678stu901vwx234yz",
-    status: "sent",
-    fee: 0.1,
-    createdAt: "2025-01-21 12:00:00",
-    sentAt: "2025-01-21 12:05:00",
-    confirmations: 10,
-  },
-  {
-    id: "wth_002",
-    userId: "user_002",
-    userName: "Jane Smith",
-    userEmail: "jane@example.com",
-    amount: 200.0,
-    destinationAddress: "DGb2Hd9ui6kL7mN8oP9qR0sT1uV2wX3yZ4aB5cD6eF7gH8iJ9",
-    txid: null,
-    status: "pending",
-    fee: 0.2,
-    createdAt: "2025-01-21 14:30:00",
-    sentAt: null,
-    confirmations: 0,
-  },
-  {
-    id: "wth_003",
-    userId: "user_003",
-    userName: "Bob Johnson",
-    userEmail: "bob@example.com",
-    amount: 500.0,
-    destinationAddress: "DGb3Jk8lm4nO5pQ6rS7tU8vW9xY0zA1bC2dE3fG4hI5jK6lM7",
-    txid: "mno654lkj321ihg098fed765cba432zyx109wvu876tsr543qpo",
-    status: "sent",
-    fee: 0.5,
-    createdAt: "2025-01-20 09:15:00",
-    sentAt: "2025-01-20 09:20:00",
-    confirmations: 25,
-  },
-  {
-    id: "wth_004",
-    userId: "user_004",
-    userName: "Alice Williams",
-    userEmail: "alice@example.com",
-    amount: 100.0,
-    destinationAddress: "DGb4Mn7op5qR6sT7uV8wX9yZ0aB1cD2eF3gH4iJ5kL6mN7oP8",
-    txid: null,
-    status: "failed",
-    fee: 0.1,
-    createdAt: "2025-01-21 11:00:00",
-    sentAt: null,
-    confirmations: 0,
-    failureReason: "Insufficient network fee",
-  },
-  {
-    id: "wth_005",
-    userId: "user_005",
-    userName: "Charlie Brown",
-    userEmail: "charlie@example.com",
-    amount: 75.0,
-    destinationAddress: "DGb5Pq6rs7tU8vW9xY0zA1bC2dE3fG4hI5jK6lM7nO8pQ9rS0",
-    txid: null,
-    status: "queued",
-    fee: 0.075,
-    createdAt: "2025-01-21 15:45:00",
-    sentAt: null,
-    confirmations: 0,
-  },
-  {
-    id: "wth_006",
-    userId: "user_006",
-    userName: "Diana Prince",
-    userEmail: "diana@example.com",
-    amount: 300.0,
-    destinationAddress: "DGb6St7uV8wX9yZ0aB1cD2eF3gH4iJ5kL6mN7oP8qR9sT0uV1",
-    txid: null,
-    status: "blocked",
-    fee: 0.3,
-    createdAt: "2025-01-21 16:00:00",
-    sentAt: null,
-    confirmations: 0,
-    blockReason: "Suspicious activity - under review",
-  },
-];
+interface Withdrawal {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  amount: number;
+  destinationAddress: string;
+  txid: string | null;
+  status: string;
+  fee: number;
+  confirmations: number;
+  failureReason: string | null;
+  blockReason: string | null;
+  createdAt: string;
+  sentAt: string | null;
+}
 
 export default function WithdrawalsPage() {
-  const [withdrawals, setWithdrawals] = useState(mockWithdrawals);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<
     "all" | "queued" | "pending" | "sent" | "failed" | "blocked"
   >("all");
-  const [selectedWithdrawal, setSelectedWithdrawal] = useState<
-    (typeof mockWithdrawals)[0] | null
-  >(null);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockReason, setBlockReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchWithdrawals = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (filterStatus !== "all") params.set("status", filterStatus);
+      if (searchTerm) params.set("search", searchTerm);
+      params.set("limit", "50");
+
+      const res = await fetch(`/api/v1/admin/withdrawals?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setWithdrawals(data.withdrawals);
+      }
+    } catch (error) {
+      console.error("Failed to fetch withdrawals:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterStatus, searchTerm]);
+
+  useEffect(() => {
+    fetchWithdrawals();
+  }, [fetchWithdrawals]);
 
   // Calculate stats
   const totalWithdrawals = withdrawals.length;
-  const queuedWithdrawals = withdrawals.filter(
-    (w) => w.status === "queued",
-  ).length;
-  const pendingWithdrawals = withdrawals.filter(
-    (w) => w.status === "pending",
-  ).length;
+  const queuedWithdrawals = withdrawals.filter((w) => w.status === "queued").length;
+  const pendingWithdrawals = withdrawals.filter((w) => w.status === "pending").length;
   const totalAmount = withdrawals
     .filter((w) => w.status === "sent")
     .reduce((sum, w) => sum + w.amount, 0);
 
-  // Filter withdrawals
-  const filteredWithdrawals = withdrawals.filter((withdrawal) => {
-    const matchesSearch =
-      withdrawal.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      withdrawal.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      withdrawal.destinationAddress
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      filterStatus === "all" || withdrawal.status === filterStatus;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Handle approve (for queued withdrawals)
-  const handleApprove = (withdrawal: (typeof mockWithdrawals)[0]) => {
-    if (
-      confirm(
-        `Approve withdrawal of ${withdrawal.amount} DGB for ${withdrawal.userName}?`,
-      )
-    ) {
-      setWithdrawals(
-        withdrawals.map((w) =>
-          w.id === withdrawal.id ? { ...w, status: "pending" } : w,
-        ),
-      );
-      alert("Withdrawal approved and queued for processing");
+  const performAction = async (id: string, action: string, reason?: string) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/v1/admin/withdrawals/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, reason }),
+      });
+      if (res.ok) {
+        fetchWithdrawals();
+        return true;
+      } else {
+        const err = await res.json();
+        alert(err.detail || `Failed to ${action}`);
+        return false;
+      }
+    } catch {
+      alert(`Failed to ${action}`);
+      return false;
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  // Handle deny
-  const handleDeny = (withdrawal: (typeof mockWithdrawals)[0]) => {
-    if (
-      confirm(
-        `Deny withdrawal of ${withdrawal.amount} DGB for ${withdrawal.userName}?`,
-      )
-    ) {
-      setWithdrawals(
-        withdrawals.map((w) =>
-          w.id === withdrawal.id
-            ? {
-                ...w,
-                status: "failed",
-                failureReason: "Denied by admin",
-                txid: null,
-                sentAt: null,
-                blockReason: undefined,
-              }
-            : w,
-        ),
-      );
-      alert("Withdrawal denied");
+  const handleApprove = async (withdrawal: Withdrawal) => {
+    if (confirm(`Approve withdrawal of ${withdrawal.amount} DGB for ${withdrawal.userName}?`)) {
+      await performAction(withdrawal.id, "approve");
     }
   };
 
-  // Handle retry failed
-  const handleRetry = (withdrawal: (typeof mockWithdrawals)[0]) => {
-    if (
-      confirm(
-        `Retry withdrawal of ${withdrawal.amount} DGB for ${withdrawal.userName}?`,
-      )
-    ) {
-      setWithdrawals(
-        withdrawals.map((w) =>
-          w.id === withdrawal.id
-            ? { ...w, status: "pending", failureReason: undefined }
-            : w,
-        ),
-      );
-      alert("Withdrawal retry initiated");
+  const handleDeny = async (withdrawal: Withdrawal) => {
+    if (confirm(`Deny withdrawal of ${withdrawal.amount} DGB for ${withdrawal.userName}?`)) {
+      await performAction(withdrawal.id, "deny");
     }
   };
 
-  // Handle block user
-  const handleBlockUser = () => {
+  const handleRetry = async (withdrawal: Withdrawal) => {
+    if (confirm(`Retry withdrawal of ${withdrawal.amount} DGB for ${withdrawal.userName}?`)) {
+      await performAction(withdrawal.id, "retry");
+    }
+  };
+
+  const handleBlockUser = async () => {
     if (!selectedWithdrawal || !blockReason.trim()) {
       alert("Please enter a reason for blocking");
       return;
     }
-
-    setWithdrawals(
-      withdrawals.map((w) =>
-        w.userId === selectedWithdrawal.userId
-          ? {
-              ...w,
-              status: "blocked",
-              blockReason,
-              txid: null,
-              sentAt: null,
-              failureReason: undefined,
-            }
-          : w,
-      ),
-    );
-
-    alert(`User ${selectedWithdrawal.userName} blocked from withdrawals`);
-    setShowBlockModal(false);
-    setBlockReason("");
-    setSelectedWithdrawal(null);
-  };
-
-  // Handle unblock user
-  const handleUnblock = (withdrawal: (typeof mockWithdrawals)[0]) => {
-    if (confirm(`Unblock ${withdrawal.userName} from making withdrawals?`)) {
-      setWithdrawals(
-        withdrawals.map((w) =>
-          w.userId === withdrawal.userId
-            ? { ...w, status: "queued", blockReason: undefined }
-            : w,
-        ),
-      );
-      alert("User unblocked");
+    const ok = await performAction(selectedWithdrawal.id, "block", blockReason);
+    if (ok) {
+      setShowBlockModal(false);
+      setBlockReason("");
+      setSelectedWithdrawal(null);
     }
   };
 
-  // Export CSV
+  const handleUnblock = async (withdrawal: Withdrawal) => {
+    if (confirm(`Unblock ${withdrawal.userName} from making withdrawals?`)) {
+      await performAction(withdrawal.id, "unblock");
+    }
+  };
+
   const handleExportCSV = () => {
-    const csvHeaders = [
-      "ID",
-      "User",
-      "Email",
-      "Amount",
-      "Destination",
-      "Status",
-      "Fee",
-      "Created",
-      "Sent",
-    ];
-    const csvData = filteredWithdrawals.map((w) => [
-      w.id,
-      w.userName,
-      w.userEmail,
-      w.amount,
-      w.destinationAddress,
-      w.status,
-      w.fee,
-      w.createdAt,
-      w.sentAt || "N/A",
+    const csvHeaders = ["ID", "User", "Email", "Amount", "Destination", "Status", "Fee", "Created", "Sent"];
+    const csvData = withdrawals.map((w) => [
+      w.id, w.userName, w.userEmail, w.amount, w.destinationAddress,
+      w.status, w.fee, new Date(w.createdAt).toLocaleString(), w.sentAt ? new Date(w.sentAt).toLocaleString() : "N/A",
     ]);
 
-    const csv = [
-      csvHeaders.join(","),
-      ...csvData.map((row) => row.join(",")),
-    ].join("\n");
-
+    const csv = [csvHeaders.join(","), ...csvData.map((row) => row.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -283,15 +152,24 @@ export default function WithdrawalsPage() {
     a.click();
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-gray-600 border-t-white rounded-full animate-spin" />
+          <p className="text-gray-400 text-sm">Loading withdrawals...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Manage Withdrawals</h1>
-          <p className="text-gray-400 text-sm mt-1">
-            Monitor and process user withdrawals
-          </p>
+          <p className="text-gray-400 text-sm mt-1">Monitor and process user withdrawals</p>
         </div>
         <button
           onClick={handleExportCSV}
@@ -303,36 +181,18 @@ export default function WithdrawalsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Total Withdrawals */}
         <OverViewCard title="Total Withdrawals" value={`${totalWithdrawals}`} />
-
-        {/* Queued Withdrawals */}
-        <OverViewCard
-          title="Queued Withdrawals"
-          value={`${queuedWithdrawals}`}
-        />
-
-        {/* Pending Withdrawals */}
-        <OverViewCard
-          title="Pending Withdrawals"
-          value={`${pendingWithdrawals}`}
-        />
-
-        {/* Total sent */}
-        <OverViewCard
-          title="Total Sent"
-          value={`${totalAmount.toFixed(2)} DGB`}
-        />
+        <OverViewCard title="Queued Withdrawals" value={`${queuedWithdrawals}`} />
+        <OverViewCard title="Pending Withdrawals" value={`${pendingWithdrawals}`} />
+        <OverViewCard title="Total Sent" value={`${totalAmount.toFixed(2)} DGB`} />
       </div>
 
       {/* Filters */}
       <div className="darkCard p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Search */}
           <div>
             <label className="text-gray-400 text-sm mb-2 block">
-              <FaSearch className="inline mr-2" />
-              Search
+              <FaSearch className="inline mr-2" />Search
             </label>
             <input
               type="text"
@@ -342,16 +202,13 @@ export default function WithdrawalsPage() {
               className="w-full fadeInput rounded-lg px-3 py-2 text-white"
             />
           </div>
-
-          {/* Status Filter */}
           <div>
             <label className="text-gray-400 text-sm mb-2 block">
-              <FaFilter className="inline mr-2" />
-              Filter by Status
+              <FaFilter className="inline mr-2" />Filter by Status
             </label>
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
+              onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
               className="w-full fadeInput rounded-lg px-3 py-2 text-white"
             >
               <option value="all">All Status</option>
@@ -367,33 +224,25 @@ export default function WithdrawalsPage() {
 
       {/* Withdrawals List - Mobile Cards */}
       <div className="lg:hidden space-y-3">
-        {filteredWithdrawals.length === 0 ? (
+        {withdrawals.length === 0 ? (
           <div className="redCard p-8 text-center">
             <p className="text-gray-400">No withdrawals found</p>
           </div>
         ) : (
-          filteredWithdrawals.map((withdrawal) => (
+          withdrawals.map((withdrawal) => (
             <div key={withdrawal.id} className="redCard p-4">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h3 className="text-white font-semibold">
-                    {withdrawal.userName}
-                  </h3>
-                  <p className="text-gray-400 text-xs">
-                    {withdrawal.userEmail}
-                  </p>
+                  <h3 className="text-white font-semibold">{withdrawal.userName}</h3>
+                  <p className="text-gray-400 text-xs">{withdrawal.userEmail}</p>
                 </div>
                 <span
                   className={`px-2 py-1 rounded-full text-xs ${
-                    withdrawal.status === "sent"
-                      ? "bg-green-600 text-white"
-                      : withdrawal.status === "pending"
-                        ? "bg-blue-600 text-white"
-                        : withdrawal.status === "queued"
-                          ? "bg-yellow-600 text-white"
-                          : withdrawal.status === "blocked"
-                            ? "bg-purple-600 text-white"
-                            : "bg-red-600 text-white"
+                    withdrawal.status === "sent" ? "bg-green-600 text-white"
+                      : withdrawal.status === "pending" ? "bg-blue-600 text-white"
+                      : withdrawal.status === "queued" ? "bg-yellow-600 text-white"
+                      : withdrawal.status === "blocked" ? "bg-purple-600 text-white"
+                      : "bg-red-600 text-white"
                   }`}
                 >
                   {withdrawal.status}
@@ -403,9 +252,7 @@ export default function WithdrawalsPage() {
               <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
                 <div>
                   <p className="text-gray-400 text-xs">Amount</p>
-                  <p className="text-white font-bold">
-                    {withdrawal.amount} DGB
-                  </p>
+                  <p className="text-white font-bold">{withdrawal.amount} DGB</p>
                 </div>
                 <div>
                   <p className="text-gray-400 text-xs">Fee</p>
@@ -413,21 +260,18 @@ export default function WithdrawalsPage() {
                 </div>
                 <div className="col-span-2">
                   <p className="text-gray-400 text-xs">Destination</p>
-                  <p className="text-white text-xs font-mono truncate">
-                    {withdrawal.destinationAddress}
-                  </p>
+                  <p className="text-white text-xs font-mono truncate">{withdrawal.destinationAddress}</p>
                 </div>
                 <div className="col-span-2">
                   <p className="text-gray-400 text-xs">Created</p>
-                  <p className="text-white text-xs">{withdrawal.createdAt}</p>
+                  <p className="text-white text-xs">{new Date(withdrawal.createdAt).toLocaleString()}</p>
                 </div>
               </div>
 
               {withdrawal.failureReason && (
                 <div className="bg-red-900 border border-red-600 rounded p-2 mb-3">
                   <p className="text-red-400 text-xs">
-                    <FaExclamationTriangle className="inline mr-1" />
-                    {withdrawal.failureReason}
+                    <FaExclamationTriangle className="inline mr-1" />{withdrawal.failureReason}
                   </p>
                 </div>
               )}
@@ -435,8 +279,7 @@ export default function WithdrawalsPage() {
               {withdrawal.blockReason && (
                 <div className="bg-purple-900 border border-purple-600 rounded p-2 mb-3">
                   <p className="text-purple-400 text-xs">
-                    <FaBan className="inline mr-1" />
-                    {withdrawal.blockReason}
+                    <FaBan className="inline mr-1" />{withdrawal.blockReason}
                   </p>
                 </div>
               )}
@@ -448,36 +291,37 @@ export default function WithdrawalsPage() {
                 >
                   <FaEye /> Details
                 </button>
-
                 {withdrawal.status === "queued" && (
                   <>
                     <button
                       onClick={() => handleApprove(withdrawal)}
+                      disabled={actionLoading}
                       className="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-xs transition"
                     >
                       <FaCheckCircle /> Approve
                     </button>
                     <button
                       onClick={() => handleDeny(withdrawal)}
+                      disabled={actionLoading}
                       className="flex items-center justify-center gap-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-xs transition"
                     >
                       <FaTimesCircle /> Deny
                     </button>
                   </>
                 )}
-
                 {withdrawal.status === "failed" && (
                   <button
                     onClick={() => handleRetry(withdrawal)}
+                    disabled={actionLoading}
                     className="flex items-center justify-center gap-1 bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-xs transition"
                   >
                     <FaRedo /> Retry
                   </button>
                 )}
-
                 {withdrawal.status === "blocked" && (
                   <button
                     onClick={() => handleUnblock(withdrawal)}
+                    disabled={actionLoading}
                     className="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-xs transition"
                   >
                     <FaCheckCircle /> Unblock
@@ -491,7 +335,7 @@ export default function WithdrawalsPage() {
 
       {/* Withdrawals List - Desktop Table */}
       <div className="hidden lg:block redCard overflow-hidden">
-        {filteredWithdrawals.length === 0 ? (
+        {withdrawals.length === 0 ? (
           <div className="p-8 text-center">
             <p className="text-gray-400">No withdrawals found</p>
           </div>
@@ -500,49 +344,26 @@ export default function WithdrawalsPage() {
             <table className="w-full">
               <thead className="darkCard">
                 <tr>
-                  <th className="text-left text-gray-400 font-medium py-3 px-4">
-                    User
-                  </th>
-                  <th className="text-right text-gray-400 font-medium py-3 px-4">
-                    Amount
-                  </th>
-                  <th className="text-left text-gray-400 font-medium py-3 px-4">
-                    Destination
-                  </th>
-                  <th className="text-center text-gray-400 font-medium py-3 px-4">
-                    Status
-                  </th>
-                  <th className="text-left text-gray-400 font-medium py-3 px-4">
-                    Created
-                  </th>
-                  <th className="text-center text-gray-400 font-medium py-3 px-4">
-                    Actions
-                  </th>
+                  <th className="text-left text-gray-400 font-medium py-3 px-4">User</th>
+                  <th className="text-right text-gray-400 font-medium py-3 px-4">Amount</th>
+                  <th className="text-left text-gray-400 font-medium py-3 px-4">Destination</th>
+                  <th className="text-center text-gray-400 font-medium py-3 px-4">Status</th>
+                  <th className="text-left text-gray-400 font-medium py-3 px-4">Created</th>
+                  <th className="text-center text-gray-400 font-medium py-3 px-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredWithdrawals.map((withdrawal) => (
-                  <tr
-                    key={withdrawal.id}
-                    className="border-t border-gray-800 hover:bg-gray-800 transition"
-                  >
+                {withdrawals.map((withdrawal) => (
+                  <tr key={withdrawal.id} className="border-t border-gray-800 hover:bg-gray-800 transition">
                     <td className="py-3 px-4">
                       <div>
-                        <p className="text-white font-medium">
-                          {withdrawal.userName}
-                        </p>
-                        <p className="text-gray-400 text-xs">
-                          {withdrawal.userEmail}
-                        </p>
+                        <p className="text-white font-medium">{withdrawal.userName}</p>
+                        <p className="text-gray-400 text-xs">{withdrawal.userEmail}</p>
                       </div>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <span className="text-white font-mono font-semibold">
-                        {withdrawal.amount} DGB
-                      </span>
-                      <p className="text-gray-400 text-xs">
-                        Fee: {withdrawal.fee} DGB
-                      </p>
+                      <span className="text-white font-mono font-semibold">{withdrawal.amount} DGB</span>
+                      <p className="text-gray-400 text-xs">Fee: {withdrawal.fee} DGB</p>
                     </td>
                     <td className="py-3 px-4">
                       <span className="text-gray-300 font-mono text-xs">
@@ -552,15 +373,11 @@ export default function WithdrawalsPage() {
                     <td className="py-3 px-4 text-center">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
-                          withdrawal.status === "sent"
-                            ? "bg-green-600 text-white"
-                            : withdrawal.status === "pending"
-                              ? "bg-blue-600 text-white"
-                              : withdrawal.status === "queued"
-                                ? "bg-yellow-600 text-white"
-                                : withdrawal.status === "blocked"
-                                  ? "bg-purple-600 text-white"
-                                  : "bg-red-600 text-white"
+                          withdrawal.status === "sent" ? "bg-green-600 text-white"
+                            : withdrawal.status === "pending" ? "bg-blue-600 text-white"
+                            : withdrawal.status === "queued" ? "bg-yellow-600 text-white"
+                            : withdrawal.status === "blocked" ? "bg-purple-600 text-white"
+                            : "bg-red-600 text-white"
                         }`}
                       >
                         {withdrawal.status === "sent" && <FaCheckCircle />}
@@ -571,13 +388,11 @@ export default function WithdrawalsPage() {
                         {withdrawal.status}
                       </span>
                       {withdrawal.failureReason && (
-                        <p className="text-red-400 text-xs mt-1">
-                          {withdrawal.failureReason}
-                        </p>
+                        <p className="text-red-400 text-xs mt-1">{withdrawal.failureReason}</p>
                       )}
                     </td>
                     <td className="py-3 px-4 text-gray-300 text-sm">
-                      {withdrawal.createdAt}
+                      {new Date(withdrawal.createdAt).toLocaleString()}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-center gap-2">
@@ -588,55 +403,34 @@ export default function WithdrawalsPage() {
                         >
                           <FaEye />
                         </button>
-
                         {withdrawal.status === "queued" && (
                           <>
-                            <button
-                              onClick={() => handleApprove(withdrawal)}
-                              className="p-2 bg-green-600 hover:bg-green-700 text-white rounded transition"
-                              title="Approve"
-                            >
+                            <button onClick={() => handleApprove(withdrawal)} disabled={actionLoading}
+                              className="p-2 bg-green-600 hover:bg-green-700 text-white rounded transition" title="Approve">
                               <FaCheckCircle />
                             </button>
-                            <button
-                              onClick={() => handleDeny(withdrawal)}
-                              className="p-2 bg-red-600 hover:bg-red-700 text-white rounded transition"
-                              title="Deny"
-                            >
+                            <button onClick={() => handleDeny(withdrawal)} disabled={actionLoading}
+                              className="p-2 bg-red-600 hover:bg-red-700 text-white rounded transition" title="Deny">
                               <FaTimesCircle />
                             </button>
                           </>
                         )}
-
                         {withdrawal.status === "failed" && (
-                          <button
-                            onClick={() => handleRetry(withdrawal)}
-                            className="p-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded transition"
-                            title="Retry"
-                          >
+                          <button onClick={() => handleRetry(withdrawal)} disabled={actionLoading}
+                            className="p-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded transition" title="Retry">
                             <FaRedo />
                           </button>
                         )}
-
                         {withdrawal.status !== "blocked" && (
                           <button
-                            onClick={() => {
-                              setSelectedWithdrawal(withdrawal);
-                              setShowBlockModal(true);
-                            }}
-                            className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition"
-                            title="Block User"
-                          >
+                            onClick={() => { setSelectedWithdrawal(withdrawal); setShowBlockModal(true); }}
+                            className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition" title="Block User">
                             <FaBan />
                           </button>
                         )}
-
                         {withdrawal.status === "blocked" && (
-                          <button
-                            onClick={() => handleUnblock(withdrawal)}
-                            className="p-2 bg-green-600 hover:bg-green-700 text-white rounded transition"
-                            title="Unblock User"
-                          >
+                          <button onClick={() => handleUnblock(withdrawal)} disabled={actionLoading}
+                            className="p-2 bg-green-600 hover:bg-green-700 text-white rounded transition" title="Unblock User">
                             <FaCheckCircle />
                           </button>
                         )}
@@ -655,67 +449,42 @@ export default function WithdrawalsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="darkCard p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-white text-xl font-bold">
-                Withdrawal Details
-              </h2>
-              <button
-                onClick={() => setSelectedWithdrawal(null)}
-                className="text-gray-400 hover:text-white text-2xl"
-              >
-                ×
-              </button>
+              <h2 className="text-white text-xl font-bold">Withdrawal Details</h2>
+              <button onClick={() => setSelectedWithdrawal(null)} className="text-gray-400 hover:text-white text-2xl">×</button>
             </div>
 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-gray-400 text-sm">User</p>
-                  <p className="text-white font-medium">
-                    {selectedWithdrawal.userName}
-                  </p>
-                  <p className="text-gray-400 text-xs">
-                    {selectedWithdrawal.userEmail}
-                  </p>
+                  <p className="text-white font-medium">{selectedWithdrawal.userName}</p>
+                  <p className="text-gray-400 text-xs">{selectedWithdrawal.userEmail}</p>
                 </div>
                 <div>
                   <p className="text-gray-400 text-sm">Status</p>
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full text-xs mt-1 ${
-                      selectedWithdrawal.status === "sent"
-                        ? "bg-green-600 text-white"
-                        : selectedWithdrawal.status === "pending"
-                          ? "bg-blue-600 text-white"
-                          : selectedWithdrawal.status === "queued"
-                            ? "bg-yellow-600 text-white"
-                            : selectedWithdrawal.status === "blocked"
-                              ? "bg-purple-600 text-white"
-                              : "bg-red-600 text-white"
-                    }`}
-                  >
-                    {selectedWithdrawal.status}
-                  </span>
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs mt-1 ${
+                    selectedWithdrawal.status === "sent" ? "bg-green-600 text-white"
+                      : selectedWithdrawal.status === "pending" ? "bg-blue-600 text-white"
+                      : selectedWithdrawal.status === "queued" ? "bg-yellow-600 text-white"
+                      : selectedWithdrawal.status === "blocked" ? "bg-purple-600 text-white"
+                      : "bg-red-600 text-white"
+                  }`}>{selectedWithdrawal.status}</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-gray-400 text-sm">Amount</p>
-                  <p className="text-white font-bold text-xl">
-                    {selectedWithdrawal.amount} DGB
-                  </p>
+                  <p className="text-white font-bold text-xl">{selectedWithdrawal.amount} DGB</p>
                 </div>
                 <div>
                   <p className="text-gray-400 text-sm">Network Fee</p>
-                  <p className="text-gray-300 font-semibold text-xl">
-                    {selectedWithdrawal.fee} DGB
-                  </p>
+                  <p className="text-gray-300 font-semibold text-xl">{selectedWithdrawal.fee} DGB</p>
                 </div>
               </div>
 
               <div>
-                <p className="text-gray-400 text-sm mb-1">
-                  Destination Address
-                </p>
+                <p className="text-gray-400 text-sm mb-1">Destination Address</p>
                 <p className="text-white font-mono text-sm break-all bg-gray-800 p-2 rounded">
                   {selectedWithdrawal.destinationAddress}
                 </p>
@@ -724,29 +493,25 @@ export default function WithdrawalsPage() {
               {selectedWithdrawal.txid && (
                 <div>
                   <p className="text-gray-400 text-sm mb-1">Transaction ID</p>
-                  <p className="text-white font-mono text-sm break-all bg-gray-800 p-2 rounded">
-                    {selectedWithdrawal.txid}
-                  </p>
+                  <p className="text-white font-mono text-sm break-all bg-gray-800 p-2 rounded">{selectedWithdrawal.txid}</p>
                 </div>
               )}
               {selectedWithdrawal.confirmations > 0 && (
                 <div>
                   <p className="text-gray-400 text-sm">Confirmations</p>
-                  <p className="text-green-400 font-semibold">
-                    {selectedWithdrawal.confirmations}
-                  </p>
+                  <p className="text-green-400 font-semibold">{selectedWithdrawal.confirmations}</p>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-gray-400 text-sm">Created At</p>
-                  <p className="text-white">{selectedWithdrawal.createdAt}</p>
+                  <p className="text-white">{new Date(selectedWithdrawal.createdAt).toLocaleString()}</p>
                 </div>
                 {selectedWithdrawal.sentAt && (
                   <div>
                     <p className="text-gray-400 text-sm">Sent At</p>
-                    <p className="text-white">{selectedWithdrawal.sentAt}</p>
+                    <p className="text-white">{new Date(selectedWithdrawal.sentAt).toLocaleString()}</p>
                   </div>
                 )}
               </div>
@@ -754,8 +519,7 @@ export default function WithdrawalsPage() {
               {selectedWithdrawal.failureReason && (
                 <div className="bg-red-900 border border-red-600 rounded-lg p-3">
                   <p className="text-red-400 text-sm">
-                    <FaExclamationTriangle className="inline mr-2" />
-                    {selectedWithdrawal.failureReason}
+                    <FaExclamationTriangle className="inline mr-2" />{selectedWithdrawal.failureReason}
                   </p>
                 </div>
               )}
@@ -763,26 +527,18 @@ export default function WithdrawalsPage() {
               {selectedWithdrawal.blockReason && (
                 <div className="bg-purple-900 border border-purple-600 rounded-lg p-3">
                   <p className="text-purple-400 text-sm">
-                    <FaBan className="inline mr-2" />
-                    {selectedWithdrawal.blockReason}
+                    <FaBan className="inline mr-2" />{selectedWithdrawal.blockReason}
                   </p>
                 </div>
               )}
             </div>
 
             <div className="flex gap-2 mt-6">
-              <button
-                onClick={() => setSelectedWithdrawal(null)}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition"
-              >
-                Close
-              </button>
+              <button onClick={() => setSelectedWithdrawal(null)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">Close</button>
               {selectedWithdrawal.status === "failed" && (
                 <button
-                  onClick={() => {
-                    handleRetry(selectedWithdrawal);
-                    setSelectedWithdrawal(null);
-                  }}
+                  onClick={() => { handleRetry(selectedWithdrawal); setSelectedWithdrawal(null); }}
                   className="flex-1 flex items-center justify-center gap-2 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition"
                 >
                   <FaRedo /> Retry Withdrawal
@@ -797,24 +553,16 @@ export default function WithdrawalsPage() {
       {showBlockModal && selectedWithdrawal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="redCard p-6 max-w-md w-full">
-            <h2 className="text-white text-xl font-bold mb-4">
-              Block User from Withdrawals
-            </h2>
+            <h2 className="text-white text-xl font-bold mb-4">Block User from Withdrawals</h2>
 
             <div className="mb-4">
               <p className="text-gray-400 text-sm mb-2">User</p>
-              <p className="text-white font-medium">
-                {selectedWithdrawal.userName}
-              </p>
-              <p className="text-gray-400 text-xs">
-                {selectedWithdrawal.userEmail}
-              </p>
+              <p className="text-white font-medium">{selectedWithdrawal.userName}</p>
+              <p className="text-gray-400 text-xs">{selectedWithdrawal.userEmail}</p>
             </div>
 
             <div className="mb-4">
-              <label className="text-gray-400 text-sm mb-2 block">
-                Reason for Blocking *
-              </label>
+              <label className="text-gray-400 text-sm mb-2 block">Reason for Blocking *</label>
               <textarea
                 value={blockReason}
                 onChange={(e) => setBlockReason(e.target.value)}
@@ -826,26 +574,23 @@ export default function WithdrawalsPage() {
 
             <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-3 mb-4">
               <p className="text-yellow-400 text-sm">
-                ⚠️ This will prevent the user from making any withdrawals until
-                unblocked.
+                Warning: This will prevent the user from making any withdrawals until unblocked.
               </p>
             </div>
 
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setShowBlockModal(false);
-                  setBlockReason("");
-                }}
+                onClick={() => { setShowBlockModal(false); setBlockReason(""); }}
                 className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleBlockUser}
+                disabled={actionLoading}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition"
               >
-                Block User
+                {actionLoading ? "Processing..." : "Block User"}
               </button>
             </div>
           </div>

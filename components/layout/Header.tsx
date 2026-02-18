@@ -38,35 +38,43 @@ const Header = () => {
     .toUpperCase()
     .slice(0, 2);
 
-  // Mock notifications — replace with real data
-  const notifications = [
-    {
-      id: 1,
-      title: "Exam Starting Soon",
-      message: "Physics Challenge starts in 30 minutes",
-      time: "5 min ago",
-      read: false,
-      icon: <FaRegClock size={14} className="text-orange-400" />,
-    },
-    {
-      id: 2,
-      title: "Results Available",
-      message: "Your Math Olympiad results are ready",
-      time: "2 hours ago",
-      read: false,
-      icon: <FaCheckCircle size={14} className="text-green-400" />,
-    },
-    {
-      id: 3,
-      title: "Deposit Confirmed",
-      message: "₦10,000 has been added to your wallet",
-      time: "Yesterday",
-      read: true,
-      icon: <FaWallet size={14} className="text-blue-400" />,
-    },
-  ];
+  const [notifications, setNotifications] = useState<
+    { id: string; title: string; message: string; read: boolean; createdAt: string }[]
+  >([]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    async function loadNotifications() {
+      try {
+        const res = await fetch("/api/v1/users/me/notifications?limit=10");
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(Array.isArray(data) ? data : []);
+        }
+      } catch {
+        // silent
+      }
+    }
+    loadNotifications();
+  }, [status]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const handleMarkAllRead = async () => {
+    try {
+      await fetch("/api/v1/users/me/notifications", { method: "PATCH" });
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch {
+      // silent
+    }
+  };
+
+  const getNotifIcon = (title: string) => {
+    if (title.toLowerCase().includes("exam")) return <FaRegClock size={14} className="text-orange-400" />;
+    if (title.toLowerCase().includes("result")) return <FaCheckCircle size={14} className="text-green-400" />;
+    if (title.toLowerCase().includes("deposit") || title.toLowerCase().includes("wallet")) return <FaWallet size={14} className="text-blue-400" />;
+    return <FaBell size={14} className="text-[var(--muted)]" />;
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -295,7 +303,7 @@ const Header = () => {
                           !notif.read ? "bg-[var(--surface)]" : ""
                         }`}
                       >
-                        <div className="mt-0.5">{notif.icon}</div>
+                        <div className="mt-0.5">{getNotifIcon(notif.title)}</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <p
@@ -315,7 +323,7 @@ const Header = () => {
                             {notif.message}
                           </p>
                           <p className="text-xs text-[var(--muted-strong)] mt-1">
-                            {notif.time}
+                            {new Date(notif.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
@@ -330,6 +338,7 @@ const Header = () => {
                 <div className="border-t border-[var(--divider)] px-4 py-2.5">
                   <button
                     type="button"
+                    onClick={handleMarkAllRead}
                     className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition w-full text-center"
                   >
                     Mark all as read

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   FaNairaSign,
@@ -21,16 +21,78 @@ import { GiOpenBook } from "react-icons/gi";
 
 type Tab = "leaderboard" | "activity" | "upcoming" | "active";
 
-const DashboardPage = () => {
+interface DashboardData {
+  wallet: { balance: number };
+  stats: {
+    totalExams: number;
+    winRate: number;
+    avgScore: number;
+    streak: number;
+  };
+  activeExams: { id: string; title: string; timeLeft: string; status: string }[];
+  exams: { id: string; title: string; entryFee: number; prizePool: number; publishedAt: string }[];
+  leaderboard: { rank: number; nickname: string; totalEarnings: number; isUser?: boolean }[];
+  recentActivity: { type: string; label: string; amount: number; time: string }[];
+}
+
+export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>("active");
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data — replace with API calls
-  const walletBalance = "12,500.00";
-  const totalExams = 24;
-  const winRate = 73;
-  const avgScore = 82;
-  const streak = 8;
+  useEffect(() => {
+    async function loadDashboard() {
+      try {
+        const [profileRes, examsRes, leaderboardRes, txRes] = await Promise.all([
+          fetch("/api/v1/users/me"),
+          fetch("/api/v1/exams"),
+          fetch("/api/v1/leaderboard?limit=5"),
+          fetch("/api/v1/wallet/transactions?limit=5"),
+        ]);
+
+        const profile = profileRes.ok ? await profileRes.json() : null;
+        const exams = examsRes.ok ? await examsRes.json() : [];
+        const leaderboard = leaderboardRes.ok ? await leaderboardRes.json() : [];
+        const txData = txRes.ok ? await txRes.json() : { transactions: [] };
+
+        const completedExams = profile?.examStats?.completed || 0;
+        const passedExams = profile?.examStats?.passed || 0;
+
+        setData({
+          wallet: { balance: profile?.wallet?.balance || 0 },
+          stats: {
+            totalExams: completedExams,
+            winRate: completedExams > 0 ? Math.round((passedExams / completedExams) * 100) : 0,
+            avgScore: profile?.examStats?.avgScore || 0,
+            streak: 0,
+          },
+          activeExams: [],
+          exams: Array.isArray(exams) ? exams : [],
+          leaderboard: Array.isArray(leaderboard) ? leaderboard : [],
+          recentActivity: (txData.transactions || []).map((tx: { type: string; reason: string; amount: number; createdAt: string }) => ({
+            type: tx.type,
+            label: tx.reason || tx.type.replace(/_/g, " "),
+            amount: tx.amount,
+            time: new Date(tx.createdAt).toLocaleDateString(),
+          })),
+        });
+      } catch {
+        // Fallback empty state
+        setData({
+          wallet: { balance: 0 },
+          stats: { totalExams: 0, winRate: 0, avgScore: 0, streak: 0 },
+          activeExams: [],
+          exams: [],
+          leaderboard: [],
+          recentActivity: [],
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDashboard();
+  }, []);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "active", label: "My Active" },
@@ -39,52 +101,22 @@ const DashboardPage = () => {
     { key: "activity", label: "Recent Activity" },
   ];
 
-  const activeExams = [
-    {
-      id: "math-sprint",
-      title: "Math Olympiad Finals",
-      timeLeft: "00:45:20",
-      status: "In Progress",
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="mt-4 flex items-center justify-center min-h-[300px]">
+        <div className="w-8 h-8 border-2 border-[#8B1E1E]/30 border-t-[#8B1E1E] rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-  const upcomingExams = [
-    {
-      id: "physics-101",
-      title: "Physics Challenge",
-      startsAt: "Tomorrow, 10:00 AM",
-      fee: 50,
-      prize: 5000,
-    },
-    {
-      id: "english-lit",
-      title: "English Literature Sprint",
-      startsAt: "Feb 12, 2:00 PM",
-      fee: 30,
-      prize: 3000,
-    },
-  ];
-
-  const leaderboard = [
-    { rank: 1, name: "AceBrain", score: 980 },
-    { rank: 2, name: "QuantumKid", score: 945 },
-    { rank: 3, name: "NovaMind", score: 920 },
-    { rank: 4, name: "SwiftSolver", score: 890 },
-    { rank: 5, name: "You", score: 850, isUser: true },
-  ];
-
-  const recentActivity = [
-    { type: "winnings", label: "Math Sprint Prize", amount: "+₦5,000", time: "2 hours ago" },
-    { type: "fee", label: "Exam Entry Fee", amount: "-₦50", time: "3 hours ago" },
-    { type: "deposit", label: "Wallet Deposit", amount: "+₦10,000", time: "Yesterday" },
-    { type: "withdrawal", label: "Bank Withdrawal", amount: "-₦3,000", time: "2 days ago" },
-  ];
+  const walletBalance = data?.wallet.balance.toLocaleString("en-NG", { minimumFractionDigits: 2 }) || "0.00";
+  const { totalExams, winRate, avgScore, streak } = data?.stats || { totalExams: 0, winRate: 0, avgScore: 0, streak: 0 };
 
   return (
     <div className="mt-4 space-y-5">
       {/* Two big cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Wallet Card — keeps gradient in both themes */}
+        {/* Wallet Card */}
         <div className="relative bg-gradient-to-br from-[#8B1E1E] to-[#250808] rounded-2xl p-5 border border-[#ffffff15] overflow-hidden themed-card">
           <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_30%_20%,white_1px,transparent_1px)] bg-[length:20px_20px]" />
           <div className="relative z-10">
@@ -103,7 +135,7 @@ const DashboardPage = () => {
             <div className="flex items-baseline gap-1 mb-6">
               <FaNairaSign size={24} className="text-white" />
               <span className="text-3xl font-bold text-white">
-                {balanceVisible ? walletBalance : "••••••"}
+                {balanceVisible ? walletBalance : "\u2022\u2022\u2022\u2022\u2022\u2022"}
               </span>
             </div>
             <div className="flex gap-3">
@@ -187,8 +219,8 @@ const DashboardPage = () => {
       <div className="min-h-[200px]">
         {activeTab === "active" && (
           <div className="space-y-3">
-            {activeExams.length > 0 ? (
-              activeExams.map((exam) => (
+            {(data?.activeExams?.length ?? 0) > 0 ? (
+              data!.activeExams.map((exam) => (
                 <div
                   key={exam.id}
                   className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl p-4 gap-4 themed-card"
@@ -238,62 +270,78 @@ const DashboardPage = () => {
 
         {activeTab === "upcoming" && (
           <div className="space-y-3">
-            {upcomingExams.map((exam) => (
-              <div
-                key={exam.id}
-                className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl p-4 gap-3 themed-card"
-              >
-                <div>
-                  <h3 className="font-semibold text-[var(--text-primary)]">{exam.title}</h3>
-                  <p className="text-sm text-[var(--muted)] mt-0.5">{exam.startsAt}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-xs text-[var(--muted)]">
-                    <span className="text-[var(--text-primary)] font-mono">₦{exam.fee}</span> entry
+            {(data?.exams?.length ?? 0) > 0 ? (
+              data!.exams.slice(0, 5).map((exam) => (
+                <div
+                  key={exam.id}
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl p-4 gap-3 themed-card"
+                >
+                  <div>
+                    <h3 className="font-semibold text-[var(--text-primary)]">{exam.title}</h3>
+                    <p className="text-sm text-[var(--muted)] mt-0.5">
+                      {exam.publishedAt ? new Date(exam.publishedAt).toLocaleDateString() : "Coming soon"}
+                    </p>
                   </div>
-                  <div className="text-xs text-[var(--muted)]">
-                    <span className="text-green-600 font-mono">₦{exam.prize.toLocaleString()}</span> prize
+                  <div className="flex items-center gap-4">
+                    <div className="text-xs text-[var(--muted)]">
+                      <span className="text-[var(--text-primary)] font-mono">DGB {exam.entryFee}</span> entry
+                    </div>
+                    <div className="text-xs text-[var(--muted)]">
+                      <span className="text-green-600 font-mono">DGB {exam.prizePool.toLocaleString()}</span> prize
+                    </div>
+                    <Link href={`/exams/${exam.id}`} className="text-sm text-[#8B1E1E] hover:text-[var(--text-primary)] transition font-medium">
+                      View
+                    </Link>
                   </div>
-                  <Link href={`/exams/${exam.id}`} className="text-sm text-[#8B1E1E] hover:text-[var(--text-primary)] transition font-medium">
-                    View
-                  </Link>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-12 text-[var(--muted)]">
+                <p>No upcoming exams at the moment.</p>
               </div>
-            ))}
+            )}
           </div>
         )}
 
         {activeTab === "leaderboard" && (
           <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl overflow-hidden themed-card">
-            {leaderboard.map((entry, i) => (
-              <div
-                key={entry.rank}
-                className={`flex items-center justify-between px-4 py-3 ${
-                  i !== leaderboard.length - 1 ? "border-b border-[var(--divider)]" : ""
-                } ${entry.isUser ? "bg-[#8B1E1E]/10" : ""}`}
-              >
-                <div className="flex items-center gap-4">
-                  <span
-                    className={`w-7 text-center font-bold text-sm ${
-                      entry.rank === 1
-                        ? "text-yellow-500"
-                        : entry.rank === 2
-                        ? "text-[var(--muted)]"
-                        : entry.rank === 3
-                        ? "text-amber-600"
-                        : "text-[var(--muted)]"
-                    }`}
-                  >
-                    #{entry.rank}
-                  </span>
-                  <span className={`font-medium ${entry.isUser ? "text-[#8B1E1E]" : "text-[var(--text-primary)]"}`}>
-                    {entry.name}
-                    {entry.isUser && <span className="text-xs text-[var(--muted)] ml-2">(You)</span>}
+            {(data?.leaderboard?.length ?? 0) > 0 ? (
+              data!.leaderboard.map((entry, i) => (
+                <div
+                  key={entry.rank}
+                  className={`flex items-center justify-between px-4 py-3 ${
+                    i !== data!.leaderboard.length - 1 ? "border-b border-[var(--divider)]" : ""
+                  } ${entry.isUser ? "bg-[#8B1E1E]/10" : ""}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span
+                      className={`w-7 text-center font-bold text-sm ${
+                        entry.rank === 1
+                          ? "text-yellow-500"
+                          : entry.rank === 2
+                          ? "text-[var(--muted)]"
+                          : entry.rank === 3
+                          ? "text-amber-600"
+                          : "text-[var(--muted)]"
+                      }`}
+                    >
+                      #{entry.rank}
+                    </span>
+                    <span className={`font-medium ${entry.isUser ? "text-[#8B1E1E]" : "text-[var(--text-primary)]"}`}>
+                      {entry.nickname}
+                      {entry.isUser && <span className="text-xs text-[var(--muted)] ml-2">(You)</span>}
+                    </span>
+                  </div>
+                  <span className="font-mono text-sm text-[var(--text-secondary)]">
+                    DGB {entry.totalEarnings?.toLocaleString() || 0}
                   </span>
                 </div>
-                <span className="font-mono text-sm text-[var(--text-secondary)]">{entry.score}</span>
+              ))
+            ) : (
+              <div className="text-center py-8 text-[var(--muted)]">
+                <p>No leaderboard data yet.</p>
               </div>
-            ))}
+            )}
             <Link
               href="/leaderboard"
               className="flex items-center justify-center gap-2 py-3 text-sm text-[var(--muted)] hover:text-[var(--text-primary)] transition border-t border-[var(--divider)]"
@@ -306,20 +354,26 @@ const DashboardPage = () => {
 
         {activeTab === "activity" && (
           <div className="space-y-2">
-            {recentActivity.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl px-4 py-3 themed-card"
-              >
-                <div>
-                  <p className="text-sm font-medium text-[var(--text-primary)]">{item.label}</p>
-                  <p className="text-xs text-[var(--text-tertiary)]">{item.time}</p>
+            {(data?.recentActivity?.length ?? 0) > 0 ? (
+              data!.recentActivity.map((item, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl px-4 py-3 themed-card"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-[var(--text-primary)]">{item.label}</p>
+                    <p className="text-xs text-[var(--text-tertiary)]">{item.time}</p>
+                  </div>
+                  <span className={`font-mono text-sm font-semibold ${item.amount >= 0 ? "text-green-600" : "text-red-500"}`}>
+                    {item.amount >= 0 ? "+" : ""}{item.amount.toLocaleString()} DGB
+                  </span>
                 </div>
-                <span className={`font-mono text-sm font-semibold ${item.amount.startsWith("+") ? "text-green-600" : "text-red-500"}`}>
-                  {item.amount}
-                </span>
+              ))
+            ) : (
+              <div className="text-center py-8 text-[var(--muted)]">
+                <p>No recent activity.</p>
               </div>
-            ))}
+            )}
             <Link
               href="/wallet"
               className="flex items-center justify-center gap-2 py-3 text-sm text-[var(--muted)] hover:text-[var(--text-primary)] transition"
@@ -332,6 +386,4 @@ const DashboardPage = () => {
       </div>
     </div>
   );
-};
-
-export default DashboardPage;
+}

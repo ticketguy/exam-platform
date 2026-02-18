@@ -2,13 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { HiAtSymbol } from "react-icons/hi2";
 import AnimatedAuthBackground from "@/components/auth/AnimatedAuthBackground";
-
-const API_URL = "";
 
 const RegisterPage = () => {
   const router = useRouter();
@@ -18,27 +15,29 @@ const RegisterPage = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
 
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
 
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/register`, {
+      const res = await fetch("/api/v1/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -57,22 +56,15 @@ const RegisterPage = () => {
         return;
       }
 
-      // Auto-login after successful registration
-      const signInRes = await signIn("credentials", {
-        email,
-        password,
-        userType: "user",
-        redirect: false,
-      });
-
       setLoading(false);
+      setSuccess(
+        "Account created! Please check your email to verify your account before logging in."
+      );
 
-      if (signInRes?.error) {
-        router.push("/login");
-        return;
-      }
-
-      router.push("/dashboard");
+      // Redirect to login after a delay
+      setTimeout(() => {
+        router.push("/login?registered=true");
+      }, 3000);
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
@@ -103,6 +95,13 @@ const RegisterPage = () => {
           <p className="text-sm text-gray-400 text-center mb-6">
             Create an account to get started
           </p>
+
+          {/* Success message */}
+          {success && (
+            <div className="bg-green-500/15 border border-green-500/20 rounded-xl px-4 py-2.5 mb-4">
+              <p className="text-green-400 text-sm text-center">{success}</p>
+            </div>
+          )}
 
           {/* Error message */}
           {error && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   FaUsers,
@@ -12,61 +12,76 @@ import {
 } from "react-icons/fa";
 import OverViewCard from "@/components/ui/OverViewCard";
 
-// Mock data (replace with real API calls later)
-const mockStats = {
-  totalUsers: 1234,
-  totalBalance: 45678.5,
-  depositsThisMonth: 234,
-  withdrawalsThisMonth: 156,
-  pendingWithdrawals: 12,
-};
+interface Stats {
+  totalUsers: number;
+  totalBalance: number;
+  depositsThisMonth: number;
+  withdrawalsThisMonth: number;
+  pendingWithdrawals: number;
+  pendingDeposits: number;
+}
 
-const mockRecentTransactions = [
-  {
-    id: "1",
-    user: "user@example.com",
-    type: "deposit",
-    amount: 100,
-    status: "confirmed",
-    timestamp: "2 mins ago",
-  },
-  {
-    id: "2",
-    user: "john@example.com",
-    type: "withdrawal",
-    amount: 50,
-    status: "pending",
-    timestamp: "5 mins ago",
-  },
-  {
-    id: "3",
-    user: "jane@example.com",
-    type: "deposit",
-    amount: 200,
-    status: "confirmed",
-    timestamp: "10 mins ago",
-  },
-  {
-    id: "4",
-    user: "bob@example.com",
-    type: "withdrawal",
-    amount: 75,
-    status: "confirmed",
-    timestamp: "15 mins ago",
-  },
-  {
-    id: "5",
-    user: "alice@example.com",
-    type: "deposit",
-    amount: 150,
-    status: "pending",
-    timestamp: "20 mins ago",
-  },
-];
+interface Transaction {
+  id: string;
+  user: string;
+  type: string;
+  amount: number;
+  status: string;
+  timestamp: string;
+}
 
 export default function AdminDashboard() {
   const [dgbMode] = useState<"mock" | "live">("mock");
   const [rpcStatus] = useState<"connected" | "disconnected">("connected");
+
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(
+    []
+  );
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        setLoading(true);
+
+        const [statsRes, txRes] = await Promise.all([
+          fetch("/api/v1/admin/stats"),
+          fetch("/api/v1/admin/transactions?limit=5"),
+        ]);
+
+        if (statsRes.ok) {
+          const statsData: Stats = await statsRes.json();
+          setStats(statsData);
+        }
+
+        if (txRes.ok) {
+          const txData: { transactions: Transaction[]; total: number } =
+            await txRes.json();
+          setRecentTransactions(txData.transactions);
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-6 w-full h-auto relative overflow-x-hidden">
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-4 border-gray-600 border-t-white rounded-full animate-spin" />
+            <p className="text-gray-400 text-sm">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 w-full h-auto relative overflow-x-hidden">
@@ -87,28 +102,28 @@ export default function AdminDashboard() {
       <div className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <OverViewCard
           title="Total Users"
-          value={mockStats.totalUsers.toLocaleString()}
+          value={(stats?.totalUsers ?? 0).toLocaleString()}
           icon={<FaUsers />}
           bgColor="bg-blue-600"
         />
 
         <OverViewCard
           title="Total Balance"
-          value={`${mockStats.totalBalance.toLocaleString()} DGB`}
+          value={`${(stats?.totalBalance ?? 0).toLocaleString()} DGB`}
           icon={<FaWallet />}
           bgColor="bg-green-600"
         />
 
         <OverViewCard
           title="Deposits (Month)"
-          value={mockStats.depositsThisMonth.toString()}
+          value={(stats?.depositsThisMonth ?? 0).toString()}
           icon={<FaArrowDown />}
           bgColor="bg-purple-600"
         />
 
         <OverViewCard
           title="Withdrawals (Month)"
-          value={mockStats.withdrawalsThisMonth.toString()}
+          value={(stats?.withdrawalsThisMonth ?? 0).toString()}
           icon={<FaArrowUp />}
           bgColor="bg-red-600"
         />
@@ -161,7 +176,7 @@ export default function AdminDashboard() {
 
         {/* Mobile: Card Layout */}
         <div className="lg:hidden space-y-3">
-          {mockRecentTransactions.map((tx) => (
+          {recentTransactions.map((tx) => (
             <div
               key={tx.id}
               className="darkCard border border-gray-700 rounded-lg p-4"
@@ -222,7 +237,7 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {mockRecentTransactions.map((tx) => (
+              {recentTransactions.map((tx) => (
                 <tr
                   key={tx.id}
                   className="border-b border-gray-800 hover:bg-gray-800 transition"

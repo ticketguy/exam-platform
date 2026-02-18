@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { findUserByEmail } from "@/lib/users";
+import bcrypt from "bcryptjs";
+import prisma from "./prisma";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -14,8 +15,16 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = findUserByEmail(credentials.email);
-        if (!user || user.password !== credentials.password) return null;
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+        if (!user) return null;
+
+        const valid = await bcrypt.compare(
+          credentials.password,
+          user.passwordHash
+        );
+        if (!valid) return null;
 
         // Check if userType matches role (admin login vs user login)
         if (credentials.userType && user.role !== credentials.userType) {
@@ -28,7 +37,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           role: user.role,
           nickname: user.nickname,
-          accessToken: `mock-jwt-${user.id}`,
+          emailVerified: user.emailVerified,
         };
       },
     }),
@@ -43,7 +52,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = user.role;
         token.nickname = user.nickname;
-        token.accessToken = user.accessToken;
+        token.emailVerified = !!user.emailVerified;
       }
       return token;
     },
@@ -52,8 +61,8 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.nickname = token.nickname as string;
+        session.user.emailVerified = token.emailVerified as boolean;
       }
-      session.accessToken = token.accessToken as string;
       return session;
     },
   },
