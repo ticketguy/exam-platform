@@ -1,178 +1,233 @@
 # Nocho — Design A (FastAPI Backend)
 
-> **Branch:** `design-a`
-> **Backend:** FastAPI (separate `exam-api` service required)
-> **Focus:** Full UI redesign with FastAPI auth integration, animated backgrounds, and dual theme support
+A competitive knowledge-testing platform with a **FastAPI Python backend** and **Next.js 14 frontend**. This branch uses FastAPI for authentication, user management, and data — the frontend calls the FastAPI API directly.
 
 ---
 
-## What's Special About This Branch
+## Architecture
 
-This branch connects to the **FastAPI backend** (`exam-api/`) for real authentication and user management. It features a fully redesigned UI with glassmorphism, canvas-based physics animations, and a Nigerian-market-focused experience.
-
-### Key Features
-
-#### 1. FastAPI Backend Authentication
-- Login and registration hit the FastAPI backend at `/api/v1/auth/login` and `/api/v1/auth/register`
-- JWT tokens from FastAPI are stored in the NextAuth session
-- Profile updates sync to the backend via `PATCH /api/v1/users/me`
-- Role-based access control (user vs admin) enforced through middleware
-
-#### 2. Canvas Physics Animation (Animated Auth Background)
-- Custom 2D physics engine rendered on HTML5 Canvas
-- Bouncing balls with logo textures, collision detection, and split mechanics
-- Particle burst effects on ball collisions
-- **60+ Nigerian trivia questions** that spawn and float upward when balls collide
-- Topics include history, culture, sports, food, and geography
-- Runs at 60fps using `requestAnimationFrame`
-
-#### 3. Dual Theme System (Dark/Light)
-- Zustand store with `localStorage` persistence
-- CSS custom properties switch all colors via `data-theme` attribute on the root
-- **Dark (default):** Near-black background (#0a0a0a), glassmorphic surfaces, white text
-- **Light:** Light gray background (#f0f1f3), white cards, dark text
-- 300ms transition animation on theme switch
-- Theme toggle available in Settings and in the Footer bar
-
-#### 4. Glassmorphism Design Language
-- `backdrop-blur-xl` on all overlays and dropdowns
-- Semi-transparent RGBA backgrounds throughout
-- Rounded corners (`rounded-2xl`) on all cards
-- No hard shadows — soft/none approach
-- Themed card variants: `.darkCard`, `.redCard`, `.gradientCard`
-
-#### 5. Dynamic Island Navigation (Header)
-- Center-aligned pill navigation: Arena | Profile | Global Leaderboard
-- Red (#8B1E1E) active state indicators
-- Notification bell with unread count badge and dropdown list
-- User profile dropdown with avatar, name, email, and quick links
-- Glassmorphic dropdowns with smooth transitions
-
-#### 6. Live Stats Footer
-- Fixed bottom bar showing real-time user stats
-- Wallet balance (Naira), global rank, win rate, average score
-- Theme toggle button (sun/moon icon)
-- Auto-hides during exam routes (`/start`, `/live-exam`)
-
-#### 7. Profile Management
-- Editable: display name, nickname (@handle), bio (120 char limit), avatar upload
-- 8-card stats layout: earnings, arenas, wins, win rate, avg score, streak, rank, verification
-- Sharable profile link: `nocho.ng/@nickname` with copy-to-clipboard
-- Profile changes sync to Header in real-time via Zustand store
-
-#### 8. Settings Panel
-- **Appearance:** Dark/light theme toggle
-- **Notifications:** 4 toggles (exam reminders, results, wallet alerts, promotions)
-- **Privacy:** 3 toggles (public profile, show earnings, leaderboard visibility)
-- **Security:** Change password form, active sessions display
-- **Account:** Logout and delete account with confirmation dialog
-
-#### 9. Gamified Dashboard
-- Wallet card with balance show/hide toggle and deposit/withdraw buttons
-- 4-stat summary: exams, streak, win rate, avg score
-- Tabbed view: My Active (with countdown timers), Upcoming, Arena Board, Recent Activity
-- Pill-style tab navigation with red active state
-
-#### 10. Nigerian Market Customization
-- Naira currency throughout the platform
-- Nigerian trivia questions in the animated background
-- "Nocho" / "9ja" / "Naija" branding in floating text
-- Subject arenas aligned with JAMB/WAEC/UTME prep
-
----
+```
+┌──────────────────────┐        ┌──────────────────────┐
+│   Next.js Frontend   │  HTTP  │   FastAPI Backend     │
+│   (exam-platform/)   │ ──────▶│   (exam-api/)         │
+│   Port: 3000         │        │   Port: 8000          │
+└──────────────────────┘        └──────────────────────┘
+         │                                │
+         │ NextAuth JWT                   │ SQLAlchemy
+         │                                ▼
+         │                      ┌──────────────────────┐
+         │                      │     PostgreSQL        │
+         └──────────────────────│     Database          │
+                                └──────────────────────┘
+```
 
 ## Tech Stack
 
-| Layer          | Technology                                |
-| -------------- | ----------------------------------------- |
-| Framework      | Next.js 14 (App Router)                  |
-| Language       | TypeScript 5                              |
-| Styling        | Tailwind CSS 4 + CSS custom properties   |
-| Authentication | NextAuth 4 + FastAPI JWT backend         |
-| State          | Zustand (localStorage persistence)       |
-| Backend        | FastAPI (separate `exam-api/` service)   |
-| Database       | PostgreSQL (via FastAPI)                  |
-| Font           | Geist (via next/font)                     |
-| Icons          | react-icons                               |
+| Layer          | Technology                              |
+| -------------- | --------------------------------------- |
+| Frontend       | Next.js 14 (App Router), TypeScript 5   |
+| Styling        | Tailwind CSS 4 + CSS custom properties  |
+| Auth           | NextAuth 4 (JWT, calls FastAPI)         |
+| State          | Zustand (localStorage persistence)      |
+| Backend        | FastAPI (Python 3.10+)                  |
+| ORM            | SQLAlchemy + Alembic (migrations)       |
+| Database       | PostgreSQL 14+                          |
+| Font           | Geist (via next/font)                   |
 
 ## Prerequisites
 
-- Node.js 18+
-- Python 3.10+ (for the FastAPI backend)
-- PostgreSQL database
-- The `exam-api/` service running
+- **Node.js** 18+ (for the frontend)
+- **Python** 3.10+ (for the FastAPI backend)
+- **PostgreSQL** 14+ (local or hosted — Supabase, Neon, Railway, etc.)
+- **pip** (comes with Python)
 
-## Getting Started
+## Quick Start
 
-### 1. Start the Backend
+### Step 1 — Set up the FastAPI backend (`exam-api/`)
 
 ```bash
 cd exam-api
+
+# Create a virtual environment
+python -m venv venv
+
+# Activate it
+# On Mac/Linux:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your DATABASE_URL and SECRET_KEY
+
+# Run database migrations
+alembic upgrade head
+
+# Seed initial data (optional)
+python seed.py
+
+# Start the API server
+uvicorn app.main:app --reload --port 8000
 ```
 
-### 2. Start the Frontend
+The API will be available at [http://localhost:8000](http://localhost:8000).
+Check [http://localhost:8000/docs](http://localhost:8000/docs) for auto-generated API docs.
+
+### Step 2 — Set up the Next.js frontend
 
 ```bash
-cd exam-platform
+# (from the repo root)
+
+# Install dependencies
 npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env — set API_URL to where your FastAPI is running
+
+# Start the frontend
 npm run dev
 ```
 
-### Environment Variables
+Open [http://localhost:3000](http://localhost:3000).
+
+---
+
+## Environment Variables
+
+### Frontend (`.env` in repo root)
 
 ```env
-NEXTAUTH_SECRET=your-secret-key
+# Random secret for NextAuth JWT signing
+# Generate with: openssl rand -base64 32
+NEXTAUTH_SECRET=your-random-secret-here
+
+# URL of this Next.js frontend (no trailing slash)
 NEXTAUTH_URL=http://localhost:3000
+
+# URL of the FastAPI backend
+API_URL=http://localhost:8000
 ```
 
-### Test Credentials
+### Backend (`exam-api/.env`)
 
-| Role  | Email          | Password |
-| ----- | -------------- | -------- |
-| User  | user@test.com  | admin    |
-| Admin | admin@test.com | admin    |
+```env
+# PostgreSQL connection string
+# Use ?sslmode=require in production
+DATABASE_URL=postgresql://user:password@localhost:5432/nocho
 
-## Route Protection
+# Random secret for signing JWT tokens
+# Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+SECRET_KEY=your-random-secret-here
 
-- **Public:** `/`, `/login`, `/register`, `/admin/login`
-- **User-only:** `/dashboard`, `/exams`, `/wallet`, `/leaderboard`, `/profile`, `/settings`
-- **Admin-only:** `/admin/*`
+# JWT settings (defaults are fine)
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+```
+
+### Required Variables Summary
+
+| Service  | Variable                      | Required | Notes                           |
+| -------- | ----------------------------- | -------- | --------------------------------|
+| Frontend | `NEXTAUTH_SECRET`             | Yes      | Min 32 random characters        |
+| Frontend | `NEXTAUTH_URL`                | Yes      | Your production domain          |
+| Frontend | `API_URL`                     | Yes      | Where FastAPI is running        |
+| Backend  | `DATABASE_URL`                | Yes      | PostgreSQL connection string    |
+| Backend  | `SECRET_KEY`                  | Yes      | Random, min 32 characters       |
+| Backend  | `ALGORITHM`                   | No       | Default: HS256                  |
+| Backend  | `ACCESS_TOKEN_EXPIRE_MINUTES` | No       | Default: 1440 (24 hours)        |
+
+---
+
+## Production Deployment
+
+### FastAPI backend
+
+FastAPI can be hosted on any Python-compatible host:
+- **Railway** — connect repo, set env vars, it detects FastAPI automatically
+- **Render** — free tier available, set start command to `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- **Fly.io** — good for Docker-based deployments
+- **VPS (Ubuntu)** — run with `gunicorn` + `uvicorn` workers behind nginx
+
+For production, update the CORS origins in `exam-api/app/main.py`:
+```python
+allow_origins=[
+    "https://your-frontend-domain.com",
+]
+```
+
+### Next.js frontend
+
+Deploy to **Vercel** (recommended):
+1. Push this branch to GitHub
+2. Connect repo on [vercel.com](https://vercel.com)
+3. Set environment variables in Vercel dashboard:
+   - `NEXTAUTH_SECRET`
+   - `NEXTAUTH_URL` (your Vercel domain)
+   - `API_URL` (your FastAPI production URL)
+4. Deploy — Vercel auto-detects Next.js
+
+---
 
 ## Project Structure
 
 ```
-app/
-├── (admin)/              # Admin route group
-├── (auth)/               # Auth pages (login, register)
-├── (user)/               # User pages (dashboard, exams, wallet, leaderboard, profile, settings)
-├── api/auth/             # NextAuth API route
-├── page.tsx              # Landing page with arena showcase
-└── globals.css           # Theme system CSS variables
-
-components/
-├── auth/
-│   └── AnimatedAuthBackground.tsx   # Canvas physics + trivia engine
-├── layout/
-│   ├── Header.tsx                   # Dynamic island navigation
-│   └── Footer.tsx                   # Live stats bar with theme toggle
-└── ui/
-
-lib/
-└── auth.ts               # NextAuth config pointing to FastAPI
-
-stores/
-├── useExamStore.ts        # Exam data store
-├── useProfileStore.ts     # Profile data with API sync
-└── useThemeStore.ts       # Dark/light theme persistence
+(repo root)              — Next.js frontend
+├── app/
+│   ├── (admin)/admin/   — Admin panel (hidden behind /idokosafehouse)
+│   ├── (auth)/          — Login, register
+│   ├── (user)/          — Dashboard, exams, wallet, profile, settings
+│   ├── api/auth/        — NextAuth handler
+│   └── page.tsx         — Landing page
+├── lib/
+│   └── auth.ts          — NextAuth config (calls FastAPI for login)
+├── middleware.ts         — Route protection + hidden admin slug
+├── .env.example         — Frontend env template
+│
+exam-api/                — FastAPI backend
+├── app/
+│   ├── main.py          — FastAPI app + CORS
+│   ├── config.py        — Settings (pydantic-settings)
+│   ├── database.py      — SQLAlchemy engine + session
+│   ├── dependencies.py  — Auth dependencies (get_current_user)
+│   ├── models/          — SQLAlchemy models
+│   ├── routers/         — API route handlers (auth, user)
+│   └── schemas/         — Pydantic request/response schemas
+├── alembic/             — Database migrations
+├── seed.py              — Seed script (demo users)
+├── requirements.txt     — Python dependencies
+└── .env.example         — Backend env template
 ```
+
+## Admin Panel
+
+The admin panel is hidden behind a secret URL slug:
+- **Access:** `/idokosafehouse` (rewrites to `/admin` internally)
+- **Direct `/admin` access** returns 404
+- All admin routes require `role: "admin"` in the JWT
 
 ## Scripts
 
-| Command         | Description              |
-| --------------- | ------------------------ |
-| `npm run dev`   | Start dev server (Turbo) |
-| `npm run build` | Production build         |
-| `npm start`     | Start production server  |
-| `npm run lint`  | Run ESLint               |
+### Frontend
+
+| Command         | Description                    |
+| --------------- | ------------------------------ |
+| `npm run dev`   | Start dev server (Turbo)       |
+| `npm run build` | Production build               |
+| `npm start`     | Start production server        |
+| `npm run lint`  | Run ESLint                     |
+
+### Backend
+
+| Command                                   | Description                    |
+| ----------------------------------------- | ------------------------------ |
+| `uvicorn app.main:app --reload`           | Start dev server               |
+| `uvicorn app.main:app --host 0.0.0.0`    | Start for production           |
+| `alembic upgrade head`                    | Run all pending migrations     |
+| `alembic revision --autogenerate -m "msg"`| Create a new migration         |
+| `python seed.py`                          | Seed demo data                 |
+| `pip install -r requirements.txt`         | Install dependencies           |
