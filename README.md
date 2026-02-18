@@ -1,205 +1,212 @@
-# Nocho — Frontend Demo (Self-Contained)
+# Nocho — Competitive Exam Platform
 
-> **Branch:** `frontend-demo` (base branch for all new frontend designs)
-> **Backend:** Built-in Next.js API routes (no external backend needed)
-> **Focus:** Fully standalone demo with in-memory auth, hidden admin panel, and waitlist toggle
-
----
-
-## What's Special About This Branch
-
-This branch runs as a **completely self-contained Next.js app** — no FastAPI, no PostgreSQL, no external services. Everything is embedded: authentication, user management, and settings all live inside Next.js API routes with in-memory storage.
-
-This is the **base branch** for creating new frontend design variations.
-
-### Key Features
-
-#### 1. Self-Contained Next.js Backend
-
-No external API needed. All backend logic runs as Next.js Route Handlers:
-
-- `POST /api/v1/auth/login` — authenticates against in-memory user store
-- `POST /api/v1/auth/register` — creates users with email/nickname uniqueness checks
-- `GET /api/v1/users/me` — returns authenticated user profile
-- `PATCH /api/v1/users/me` — updates profile fields (nickname, email, phone, country, state)
-- `GET /api/v1/settings` — fetches platform settings (waitlist state)
-- `PATCH /api/v1/settings` — updates platform settings
-
-All responses match the FastAPI format so switching to a real backend later is seamless.
-
-#### 2. In-Memory User Store (`lib/users.ts`)
-
-- Users stored in a JavaScript `Map` — no database required
-- Passwords hashed with bcrypt
-- Pre-seeded demo accounts ready on startup:
-
-| Role  | Email           | Password |
-| ----- | --------------- | -------- |
-| Admin | admin@nocho.ng  | admin123 |
-| User  | demo@nocho.ng   | demo123  |
-
-- Data resets on server restart (by design for demos)
-
-#### 3. Hidden Admin Panel (Secret Slug)
-
-The admin panel is **not** at `/admin`. It's hidden behind a secret URL:
-
-- **Access:** `/idokosafehouse` (rewrites internally to `/admin`)
-- **Direct `/admin` access** returns a 404 page
-- Admin login at `/idokosafehouse/login`
-- All admin routes require `role: "admin"` in the session
-- Regular users trying `/idokosafehouse/*` get redirected to their dashboard
-
-#### 4. Waitlist Toggle (Admin-Controlled)
-
-Admins can toggle the platform between **waitlist mode** and **open registration**:
-
-- **Waitlist ON (default):** Landing page shows email capture form, login/register buttons hidden
-- **Waitlist OFF:** Landing page shows login/register buttons, normal user flow
-- Toggle lives in Admin Settings > Platform tab
-- State stored in-memory, controlled via `/api/v1/settings` endpoint
-- Landing page fetches the setting on load and adapts in real-time
-
-#### 5. Admin Settings Dashboard (5 Tabs)
-
-Full admin settings panel at `/idokosafehouse/settings`:
-
-- **Platform:** Waitlist toggle (functional)
-- **DigiByte:** Mock blockchain RPC config with test connection button
-- **Security:** Rate limiting, session timeout, max login attempts (UI mockups)
-- **Exam Settings:** Default duration, pass mark, retakes, show answers (UI mockups)
-- **Admin Management:** Table of admins, add/remove admins, role assignment
-
-#### 6. Mock JWT Authentication
-
-- Tokens use a simple format: `mock-jwt-{user-id}`
-- No cryptographic key management needed
-- NextAuth Credentials Provider validates against the in-memory store
-- `userType` parameter separates admin vs user login flows
-- JWT session strategy (no database sessions)
-
-#### 7. Enhanced Middleware
-
-Route protection with URL rewriting:
-
-- `/idokosafehouse/*` rewrites to `/admin/*` (hidden admin access)
-- `/admin/*` direct access returns 404 (blocks discovery)
-- Public routes: `/`, `/login`, `/register`, `/idokosafehouse/login`
-- User routes require authentication
-- Admin routes require `role: "admin"`
-
-#### 8. All Design-A UI Features Included
-
-This branch inherits everything from `design-a`:
-
-- Canvas physics animation with Nigerian trivia
-- Dual theme system (dark/light)
-- Glassmorphism design language
-- Dynamic island navigation header
-- Live stats footer
-- Profile management with Zustand sync
-- Settings panel (appearance, notifications, privacy, security)
-- Gamified dashboard with tabs and countdown timers
+A competitive knowledge-testing platform where users take exams, compete on leaderboards, and earn DigiByte (DGB) rewards. Built with Next.js 14, PostgreSQL, and Prisma.
 
 ---
 
 ## Tech Stack
 
-| Layer          | Technology                              |
-| -------------- | --------------------------------------- |
-| Framework      | Next.js 14 (App Router)                |
-| Language       | TypeScript 5                            |
-| Styling        | Tailwind CSS 4 + CSS custom properties |
-| Authentication | NextAuth 4 (JWT, in-memory store)      |
-| State          | Zustand (localStorage persistence)     |
-| Backend        | Next.js Route Handlers (embedded)      |
-| Database       | None (in-memory JavaScript Map)        |
-| Font           | Geist (via next/font)                   |
-| Icons          | react-icons                             |
+| Layer          | Technology                                |
+| -------------- | ----------------------------------------- |
+| Framework      | Next.js 14 (App Router)                   |
+| Language       | TypeScript 5                              |
+| Styling        | Tailwind CSS 4                            |
+| Authentication | NextAuth 4 (JWT strategy)                 |
+| Database       | PostgreSQL + Prisma 7 (driver adapter)    |
+| Email          | Resend (transactional verification emails)|
+| Blockchain     | DigiByte RPC (with mock mode fallback)    |
+| State          | Zustand (client-side persistence)         |
+| Validation     | Zod                                       |
+| Font           | Inter (via next/font)                     |
 
 ## Prerequisites
 
-- Node.js 18+
-- npm / yarn / pnpm
-- That's it. No Python, no PostgreSQL, no external services.
+- **Node.js** 18+ (20 LTS recommended)
+- **PostgreSQL** 14+ (local or hosted — Supabase, Neon, Railway, etc.)
+- **npm** (comes with Node.js)
+- **DigiByte Core** (optional — only needed if `DGB_MODE=live`)
+- **Resend account** (optional — email verification skipped if key is empty)
 
-## Getting Started
+## Quick Start
 
 ```bash
+# 1. Clone and install
+git clone <repo-url>
+cd exam-platform
 npm install
+
+# 2. Set up environment
+cp .env.example .env
+# Edit .env with your values (see Environment Variables below)
+
+# 3. Generate Prisma client and run migrations
+npx prisma generate
+npx prisma migrate deploy
+
+# 4. Seed the database (creates admin account + demo data)
+npx prisma db seed
+
+# 5. Start development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Environment Variables
+## Environment Variables
 
-Create a `.env.local` file:
+Copy `.env.example` to `.env` and fill in the values:
 
 ```env
-NEXTAUTH_SECRET=your-secret-key
-NEXTAUTH_URL=http://localhost:3000
+# ─── Database ───────────────────────────────────────────────
+# PostgreSQL connection string. Use ?sslmode=require in production.
+DATABASE_URL="postgresql://user:password@localhost:5432/nocho?schema=public"
+
+# ─── NextAuth ───────────────────────────────────────────────
+# Random secret for JWT signing. Generate with: openssl rand -base64 32
+NEXTAUTH_SECRET="generate-a-secure-random-string-here"
+
+# The canonical URL of your deployment (no trailing slash)
+NEXTAUTH_URL="http://localhost:3000"
+
+# ─── Email (Resend) ────────────────────────────────────────
+# API key from https://resend.com. Leave empty to skip sending
+# (verification URLs will be logged to console in dev mode).
+RESEND_API_KEY=""
+
+# ─── DigiByte RPC ───────────────────────────────────────────
+# Connection to a DigiByte Core node. Set DGB_MODE=live for real
+# blockchain operations, or DGB_MODE=mock for development.
+DGB_RPC_HOST="localhost"
+DGB_RPC_PORT="14022"
+DGB_RPC_USER="digibyte"
+DGB_RPC_PASS=""
+DGB_MODE="mock"
+DGB_CONFIRMATIONS_REQUIRED="6"
 ```
 
-### Demo Accounts
+### Required vs Optional
 
-| Role  | Email           | Password | Login URL                |
-| ----- | --------------- | -------- | ------------------------ |
-| Admin | admin@nocho.ng  | admin123 | `/idokosafehouse/login`  |
-| User  | demo@nocho.ng   | demo123  | `/login`                 |
+| Variable                    | Required | Notes                                       |
+| --------------------------- | -------- | -------------------------------------------- |
+| `DATABASE_URL`              | Yes      | PostgreSQL connection string                 |
+| `NEXTAUTH_SECRET`           | Yes      | Must be random, min 32 characters            |
+| `NEXTAUTH_URL`              | Yes      | Your domain in production                    |
+| `RESEND_API_KEY`            | No       | Email skipped if empty (dev mode logs URLs)  |
+| `DGB_RPC_HOST`              | No       | Only needed when `DGB_MODE=live`             |
+| `DGB_RPC_PORT`              | No       | Default: 14022                               |
+| `DGB_RPC_USER`              | No       | Default: digibyte                            |
+| `DGB_RPC_PASS`              | No       | Only needed when `DGB_MODE=live`             |
+| `DGB_MODE`                  | No       | `mock` (default) or `live`                   |
+| `DGB_CONFIRMATIONS_REQUIRED`| No       | Default: 6                                   |
+
+## Demo Accounts
+
+Created by the seed script (`npx prisma db seed`):
+
+| Role  | Email           | Password | Login URL               |
+| ----- | --------------- | -------- | ----------------------- |
+| Admin | admin@nocho.ng  | admin123 | `/idokosafehouse/login` |
+| User  | demo@nocho.ng   | demo123  | `/login`                |
+
+**Change these passwords in production.** The seed is for initial setup only.
 
 ## Project Structure
 
-```text
+```
 app/
-├── (admin)/admin/            # Admin pages (hidden behind /idokosafehouse)
-│   ├── (dashboard)/settings/ # Admin settings with waitlist toggle
-│   └── login/                # Admin login page
-├── (auth)/                   # User auth pages (login, register)
-├── (user)/                   # User pages (dashboard, exams, wallet, etc.)
+├── (admin)/admin/              # Admin panel (hidden behind /idokosafehouse)
+│   ├── (dashboard)/            # Admin dashboard pages
+│   │   ├── deposits/           # Deposit management
+│   │   ├── exams/              # Exam CRUD + results
+│   │   ├── settings/           # Platform settings + admin management
+│   │   ├── transactions/       # Transaction history
+│   │   └── withdrawals/        # Withdrawal management
+│   └── login/                  # Admin login
+├── (auth)/                     # Auth pages (login, register)
+├── (user)/                     # User pages
+│   ├── dashboard/              # User dashboard
+│   ├── exams/                  # Exam list, take exam, results
+│   ├── leaderboard/            # Rankings
+│   ├── profile/                # Profile management
+│   ├── settings/               # User settings
+│   └── wallet/                 # Wallet + transactions
 ├── api/
-│   ├── auth/                 # NextAuth API route
-│   └── v1/                   # Self-contained API routes
-│       ├── auth/login/       # Login endpoint
-│       ├── auth/register/    # Register endpoint
-│       ├── users/me/         # Profile endpoint
-│       └── settings/         # Platform settings endpoint
-├── page.tsx                  # Landing page (waitlist-aware)
-└── globals.css               # Theme system CSS variables
-
-components/
-├── auth/                     # AnimatedAuthBackground (canvas physics)
-├── layout/
-│   ├── AdminShell.tsx        # Admin layout (uses /idokosafehouse links)
-│   ├── Header.tsx            # Dynamic island navigation
-│   └── Footer.tsx            # Live stats bar
-└── ui/
+│   ├── auth/[...nextauth]/     # NextAuth handler
+│   └── v1/                     # API routes
+│       ├── admin/              # Admin endpoints (protected)
+│       ├── auth/               # Register, login, verify email
+│       ├── exams/              # Exam listing, start, submit, result
+│       ├── internal/           # DGB polling + withdrawal processing
+│       ├── leaderboard/        # Leaderboard data
+│       ├── users/me/           # User profile + notifications
+│       ├── waitlist/           # Waitlist signup
+│       └── wallet/             # Wallet balance + withdraw
+└── page.tsx                    # Landing page
 
 lib/
-├── auth.ts                   # NextAuth config (in-memory provider)
-└── users.ts                  # In-memory user store + waitlist state
+├── auth.ts                     # NextAuth configuration
+├── auth-helpers.ts             # requireUser(), requireAdmin()
+├── dgb-rpc.ts                  # DigiByte RPC client
+├── email.ts                    # Resend email (lazy-initialized)
+├── prisma.ts                   # Prisma client singleton (PrismaPg adapter)
+├── rate-limit.ts               # In-memory rate limiter
+├── settings.ts                 # Platform settings helpers
+├── validation.ts               # Zod schemas
+├── users.ts                    # Legacy (unused in production)
+└── wallet-service.ts           # Wallet operations
 
-stores/
-├── useExamStore.ts           # Exam data store
-├── useProfileStore.ts        # Profile data with sync
-└── useThemeStore.ts          # Dark/light theme persistence
-
-middleware.ts                 # Route protection + admin slug rewriting
+middleware.ts                   # Route protection + admin slug rewriting
+prisma/
+├── schema.prisma               # Database schema
+└── seed.ts                     # Seed script (admin + demo data)
 ```
 
-## Branching Strategy
+## Hidden Admin Panel
 
-This branch is the **base for new frontend designs**:
+The admin panel is **not** accessible at `/admin`. It uses a secret URL slug:
 
-- `design-a` — FastAPI backend version (separate, not based on this branch)
-- `frontend-demo` — **this branch** (self-contained, base for new designs)
-- New design branches should be created from `frontend-demo`
+- **Access:** `/idokosafehouse` (rewrites internally to `/admin`)
+- **Direct `/admin` access** returns 404
+- Admin login at `/idokosafehouse/login`
+- All admin routes require `role: "admin"` in the JWT
+- Regular users attempting admin URLs get redirected to `/dashboard`
 
 ## Scripts
 
-| Command       | Description              |
-| ------------- | ------------------------ |
-| `npm run dev` | Start dev server (Turbo) |
-| `npm run build` | Production build       |
-| `npm start`   | Start production server  |
-| `npm run lint` | Run ESLint              |
+| Command                        | Description                          |
+| ------------------------------ | ------------------------------------ |
+| `npm run dev`                  | Start dev server (Turbo mode)        |
+| `npm run build`                | Production build                     |
+| `npm start`                    | Start production server (port 3000)  |
+| `npm run lint`                 | Run ESLint                           |
+| `npx prisma generate`         | Generate Prisma client               |
+| `npx prisma migrate deploy`   | Run pending migrations               |
+| `npx prisma db seed`          | Seed database with initial data      |
+| `npx prisma studio`           | Open Prisma database GUI             |
+
+## Production Deployment
+
+A one-command deployment script is included:
+
+```bash
+# First deployment
+bash deploy.sh
+
+# Or with a custom port
+PORT=8080 bash deploy.sh
+```
+
+The script handles: dependency install, Prisma generate, migrations, build, and starts the server. See `deploy.sh` for details.
+
+For detailed security review, see [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md).
+
+## Key Features
+
+- **Competitive exams** with entry fees, prize pools, and time limits
+- **DigiByte wallet** integration (deposits, withdrawals, balance tracking)
+- **Leaderboard** rankings across all users
+- **Email verification** via Resend
+- **Admin panel** for exam management, user finances, and platform settings
+- **Rate limiting** on auth and financial endpoints
+- **Security headers** (HSTS, X-Frame-Options, CSP-ready)
+- **Waitlist mode** toggle for controlled launches
