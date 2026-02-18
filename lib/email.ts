@@ -1,6 +1,13 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY || undefined);
+let resend: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 export async function sendVerificationEmail(
   email: string,
@@ -15,7 +22,7 @@ export async function sendVerificationEmail(
     return;
   }
 
-  await resend.emails.send({
+  await getResendClient().emails.send({
     from: "Nocho <noreply@nocho.ng>",
     to: email,
     subject: "Verify your Nocho account",
